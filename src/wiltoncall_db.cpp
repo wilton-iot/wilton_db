@@ -6,11 +6,13 @@
  */
 
 
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <unordered_set>
 
 #include "staticlib/config.hpp"
+#include "staticlib/io.hpp"
 #include "staticlib/json.hpp"
 #include "staticlib/support.hpp"
 
@@ -42,7 +44,7 @@ std::string wrap_wilton_output(char* out, int out_len) {
     return res;
 }
 
-void register_call(const std::string& name, std::string (*fun)(const std::string&)) {
+void register_call(const std::string& name, std::string (*fun)(const char*, uint32_t)) {
     auto err = wiltoncall_register(name.c_str(), static_cast<int> (name.length()), reinterpret_cast<void*>(fun),
         [] (void* vfun, const char* json_in, int json_in_len, char** json_out, int* json_out_len) -> char* {
             if (nullptr == vfun) return wilton::db::alloc_copy(TRACEMSG("Null 'vfun' parameter specified"));
@@ -50,10 +52,8 @@ void register_call(const std::string& name, std::string (*fun)(const std::string
             if (!sl::support::is_uint32_positive(json_in_len)) return wilton::db::alloc_copy(TRACEMSG(
                     "Invalid 'json_in_len' parameter specified: [" + sl::support::to_string(json_in_len) + "]"));
             try {
-                auto fun = reinterpret_cast<std::string(*)(const std::string&)>(vfun);
-                uint32_t json_in_len_u32 = static_cast<uint32_t> (json_in_len);
-                auto json_in_str = std::string(json_in, json_in_len_u32);
-                std::string out = (*fun)(json_in_str);
+                auto fun = reinterpret_cast<std::string(*)(const char*, uint32_t)>(vfun);
+                std::string out = (*fun)(json_in, static_cast<uint32_t> (json_in_len));
                 *json_out = wilton::db::alloc_copy(out);
                 *json_out_len = static_cast<int> (out.length());
                 return nullptr;
@@ -107,9 +107,9 @@ handle_registry<wilton_DBTransaction>& static_tran_registry() {
 
 // calls
 
-std::string db_connection_open(const std::string& data) {
+std::string db_connection_open(const char* data, uint32_t data_len) {
     wilton_DBConnection* conn;
-    char* err = wilton_DBConnection_open(std::addressof(conn), data.c_str(), static_cast<int>(data.length()));
+    char* err = wilton_DBConnection_open(std::addressof(conn), data, static_cast<int>(data_len));
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err));
     int64_t handle = static_conn_registry().put(conn);
     return sl::json::dumps({
@@ -117,8 +117,9 @@ std::string db_connection_open(const std::string& data) {
     });
 }
 
-std::string db_connection_query(const std::string& data) {
+std::string db_connection_query(const char* data, uint32_t data_len) {
     // json parse
+    auto src = sl::io::array_source(data, data_len);
     sl::json::value json = sl::json::loads(data);
     int64_t handle = -1;
     auto rsql = std::ref(empty_string());
@@ -158,8 +159,9 @@ std::string db_connection_query(const std::string& data) {
     return wrap_wilton_output(out, out_len);
 }
 
-std::string db_connection_execute(const std::string& data) {
+std::string db_connection_execute(const char* data, uint32_t data_len) {
     // json parse
+    auto src = sl::io::array_source(data, data_len);
     sl::json::value json = sl::json::loads(data);
     int64_t handle = -1;
     auto rsql = std::ref(empty_string());
@@ -196,8 +198,9 @@ std::string db_connection_execute(const std::string& data) {
     return "{}";
 }
 
-std::string db_connection_close(const std::string& data) {
+std::string db_connection_close(const char* data, uint32_t data_len) {
     // json parse
+    auto src = sl::io::array_source(data, data_len);
     sl::json::value json = sl::json::loads(data);
     int64_t handle = -1;
     for (const sl::json::field& fi : json.as_object()) {
@@ -223,8 +226,9 @@ std::string db_connection_close(const std::string& data) {
     return "{}";
 }
 
-std::string db_transaction_start(const std::string& data) {
+std::string db_transaction_start(const char* data, uint32_t data_len) {
     // json parse
+    auto src = sl::io::array_source(data, data_len);
     sl::json::value json = sl::json::loads(data);
     int64_t handle = -1;
     for (const sl::json::field& fi : json.as_object()) {
@@ -252,8 +256,9 @@ std::string db_transaction_start(const std::string& data) {
     });
 }
 
-std::string db_transaction_commit(const std::string& data) {
+std::string db_transaction_commit(const char* data, uint32_t data_len) {
     // json parse
+    auto src = sl::io::array_source(data, data_len);
     sl::json::value json = sl::json::loads(data);
     int64_t handle = -1;
     for (const sl::json::field& fi : json.as_object()) {
@@ -278,8 +283,9 @@ std::string db_transaction_commit(const std::string& data) {
     return "{}";
 }
 
-std::string db_transaction_rollback(const std::string& data) {
+std::string db_transaction_rollback(const char* data, uint32_t data_len) {
     // json parse
+    auto src = sl::io::array_source(data, data_len);
     sl::json::value json = sl::json::loads(data);
     int64_t handle = -1;
     for (const sl::json::field& fi : json.as_object()) {
