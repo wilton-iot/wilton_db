@@ -49,8 +49,8 @@ if ( NOT DEFINED WILTON_DEPS )
 endif ( )
 if ( NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Linux" ) # system dependencies implied on Linux
     wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/external_sqlite )
-    wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
 endif ( )
+wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
 wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/staticlib_orm )
 
 set ( ${PROJECT_NAME}_DEPS
