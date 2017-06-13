@@ -26,7 +26,9 @@ endif ( )
 option ( ${PROJECT_NAME}_SHARED "Build shared library instead of a static one" ON )
 
 # dep options
-#set ( staticlib_pion_USE_LOG4CPLUS ON CACHE BOOL "Use log4cplus lib for logging" )
+set ( SOCI_ENABLE_POSTGRES ON CACHE BOOL "Enable PostgreSQL backend" )
+# todo: use pkg-config
+set ( SOCI_POSTGRES_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/../external_libpq/libpq/include" CACHE STRING "Path to the PostgreSQL headers" )
 
 # docs
 option ( ${PROJECT_NAME}_ENABLE_DOCS "Generate doxyfile and exit build" OFF )
@@ -50,13 +52,15 @@ endif ( )
 if ( NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Linux" ) # system dependencies implied on Linux
     wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/external_sqlite )
 endif ( )
+wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/external_libpq )
 wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
 wilton_db_add_subdirectory ( ${STATICLIB_DEPS}/staticlib_orm )
 
 set ( ${PROJECT_NAME}_DEPS
         staticlib_orm
+        soci
         sqlite3
-        soci )
+        libpq )
 wilton_db_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
 
 # library
