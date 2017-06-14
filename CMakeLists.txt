@@ -86,7 +86,7 @@ target_link_libraries ( ${PROJECT_NAME} ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE 
         ${CMAKE_CURRENT_LIST_DIR}/src
         ${CMAKE_CURRENT_LIST_DIR}/include
-        ${WILTON_DEPS}/libwilton/include
+        ${WILTON_DEPS}/wilton_core/include
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
 target_compile_options ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_DEPS_PC_CFLAGS_OTHER} ) 
 if ( ${PROJECT_NAME}_SHARED )

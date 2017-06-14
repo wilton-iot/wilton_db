@@ -17,11 +17,10 @@ include ( ${STATICLIB_CMAKE}/staticlibs_common.cmake )
 staticlib_enable_deplibs_cache ( )
 
 # dependencies
-add_subdirectory ( ${CMAKE_CURRENT_LIST_DIR}/../../../wilton/libwilton ${CMAKE_BINARY_DIR}/wilton )
-set_target_properties ( wilton PROPERTIES FOLDER "deps" )
+staticlib_add_subdirectory ( ${CMAKE_CURRENT_LIST_DIR}/../../wilton_core )
 staticlib_add_subdirectory ( ${CMAKE_CURRENT_LIST_DIR}/../../wilton_db )
 set ( ${PROJECT_NAME}_DEPS
-        wilton
+        wilton_core
         wilton_db )
 staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
 
