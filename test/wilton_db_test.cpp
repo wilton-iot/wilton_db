@@ -61,12 +61,8 @@ void test_db() {
     err = wiltoncall(name.c_str(), static_cast<int>(name.length()), dconf.c_str(), static_cast<int>(dconf.length()),
             std::addressof(out), std::addressof(out_len));
     std::string rconf = R"({
-          "module": "runWiltonTests",
-          "func": "main",
-          "args": [{
-             "core": false, 
-             "db": true 
-           }]
+          "module": "wilton/test/db/index",
+          "func": "main"
         })";
     err = wiltoncall_runscript_duktape(rconf.c_str(), static_cast<int> (rconf.length()), 
             std::addressof(out), std::addressof(out_len));
