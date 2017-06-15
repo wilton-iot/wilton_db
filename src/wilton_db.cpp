@@ -16,6 +16,7 @@
 #include "staticlib/json.hpp"
 
 #include "wilton/support/alloc_copy.hpp"
+#include "wilton/support/span_operations.hpp"
 
 struct wilton_DBConnection {
 private:
@@ -63,7 +64,6 @@ char* wilton_DBConnection_open(
     }
 }
 
-// todo: json copy
 char* wilton_DBConnection_query(
         wilton_DBConnection* conn,
         const char* sql_text,
@@ -86,10 +86,10 @@ char* wilton_DBConnection_query(
         std::string sql_text_str{sql_text, sql_text_len_u32};
         auto json = params_json_len > 0 ? sl::json::load({params_json, params_json_len}) : sl::json::value();
         std::vector<sl::json::value> rs = conn->impl().query(sql_text_str, json);
-        sl::json::value rs_json{std::move(rs)};
-        std::string rs_str = rs_json.dumps();
-        *result_set_out = wilton::support::alloc_copy(rs_str);
-        *result_set_len_out = static_cast<int>(rs_str.size());
+        auto rs_json = sl::json::value(std::move(rs));
+        auto span = wilton::support::into_span(rs_json);
+        *result_set_out = span.value().data();
+        *result_set_len_out = static_cast<int>(span.value().size());
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
