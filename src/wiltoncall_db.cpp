@@ -42,12 +42,18 @@ void throw_wilton_error(char* err, const std::string& msg) {
 }
 
 support::handle_registry<wilton_DBConnection>& static_conn_registry() {
-    static support::handle_registry<wilton_DBConnection> registry;
+    static support::handle_registry<wilton_DBConnection> registry {
+        [] (wilton_DBConnection* conn) STATICLIB_NOEXCEPT {
+            wilton_DBConnection_close(conn);
+        }};
     return registry;
 }
 
 support::handle_registry<wilton_DBTransaction>& static_tran_registry() {
-    static support::handle_registry<wilton_DBTransaction> registry;
+    static support::handle_registry<wilton_DBTransaction> registry {
+        [] (wilton_DBTransaction* tran) STATICLIB_NOEXCEPT {
+            wilton_DBTransaction_rollback(tran);
+        }};
     return registry;
 }
 
