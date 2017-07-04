@@ -87,7 +87,7 @@ char* wilton_DBConnection_query(
         auto json = params_json_len > 0 ? sl::json::load({params_json, params_json_len}) : sl::json::value();
         std::vector<sl::json::value> rs = conn->impl().query(sql_text_str, json);
         auto rs_json = sl::json::value(std::move(rs));
-        auto span = wilton::support::into_span(rs_json);
+        auto span = wilton::support::json_span(rs_json);
         *result_set_out = span.value().data();
         *result_set_len_out = static_cast<int>(span.value().size());
         return nullptr;

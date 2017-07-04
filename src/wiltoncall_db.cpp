@@ -66,7 +66,7 @@ sl::support::optional<sl::io::span<char>> db_connection_open(sl::io::span<const 
     char* err = wilton_DBConnection_open(std::addressof(conn), data.data(), static_cast<int>(data.size()));
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err));
     int64_t handle = static_conn_registry().put(conn);
-    return support::into_span({
+    return support::json_span({
         { "connectionHandle", handle}
     });
 }
@@ -109,7 +109,7 @@ sl::support::optional<sl::io::span<char>> db_connection_query(sl::io::span<const
             std::addressof(out), std::addressof(out_len));
     static_conn_registry().put(conn);
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err));
-    return support::into_span(out, out_len);
+    return support::buffer_span(out, out_len);
 }
 
 sl::support::optional<sl::io::span<char>> db_connection_execute(sl::io::span<const char> data) {
@@ -201,7 +201,7 @@ sl::support::optional<sl::io::span<char>> db_transaction_start(sl::io::span<cons
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err +
             "\ndb_transaction_start error for input data"));
     int64_t thandle = static_tran_registry().put(tran);
-    return support::into_span({
+    return support::json_span({
         { "transactionHandle", thandle}
     });
 }
