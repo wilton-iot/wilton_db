@@ -82,7 +82,7 @@ endif ( )
 add_library ( ${PROJECT_NAME} ${${PROJECT_NAME}_LIBTYPE}
         ${${PROJECT_NAME}_SRC} 
         ${${PROJECT_NAME}_HEADERS} )
-target_link_libraries ( ${PROJECT_NAME} ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
+target_link_libraries ( ${PROJECT_NAME} wilton_core ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE 
         ${CMAKE_CURRENT_LIST_DIR}/src
         ${CMAKE_CURRENT_LIST_DIR}/include
@@ -90,7 +90,7 @@ target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
 target_compile_options ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_DEPS_PC_CFLAGS_OTHER} ) 
 if ( ${PROJECT_NAME}_SHARED )
-    target_compile_definitions ( ${PROJECT_NAME} PRIVATE -DWILTON_SHARED -DWILTON_SHARED_IMPORT )
+    target_compile_definitions ( ${PROJECT_NAME} PRIVATE -DWILTON_SHARED -DWILTON_DB_SHARED_EXPORT )
 endif ( )
 
 # pkg-config
