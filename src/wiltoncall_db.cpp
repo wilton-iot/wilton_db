@@ -261,7 +261,7 @@ sl::support::optional<sl::io::span<char>> db_transaction_rollback(sl::io::span<c
 } // namespace
 }
 
-extern "C" WILTON_DB_EXPORT char* wilton_module_init() {
+extern "C" char* wilton_module_init() {
     try {
         wilton::support::register_wiltoncall("db_connection_open", wilton::db::db_connection_open);
         wilton::support::register_wiltoncall("db_connection_query", wilton::db::db_connection_query);
