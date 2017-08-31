@@ -21,7 +21,7 @@
 #include "wilton/wilton_db.h"
 
 #include "wilton/support/handle_registry.hpp"
-#include "wilton/support/span_operations.hpp"
+#include "wilton/support/buffer.hpp"
 #include "wilton/support/registrar.hpp"
 
 #include "wilton_db_exception.hpp"
@@ -61,17 +61,17 @@ support::handle_registry<wilton_DBTransaction>& static_tran_registry() {
 
 // calls
 
-sl::support::optional<sl::io::span<char>> db_connection_open(sl::io::span<const char> data) {
+support::buffer db_connection_open(sl::io::span<const char> data) {
     wilton_DBConnection* conn;
     char* err = wilton_DBConnection_open(std::addressof(conn), data.data(), static_cast<int>(data.size()));
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err));
     int64_t handle = static_conn_registry().put(conn);
-    return support::json_span({
+    return support::make_json_buffer({
         { "connectionHandle", handle}
     });
 }
 
-sl::support::optional<sl::io::span<char>> db_connection_query(sl::io::span<const char> data) {
+support::buffer db_connection_query(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -109,10 +109,10 @@ sl::support::optional<sl::io::span<char>> db_connection_query(sl::io::span<const
             std::addressof(out), std::addressof(out_len));
     static_conn_registry().put(conn);
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err));
-    return support::buffer_span(out, out_len);
+    return support::wrap_wilton_buffer(out, out_len);
 }
 
-sl::support::optional<sl::io::span<char>> db_connection_execute(sl::io::span<const char> data) {
+support::buffer db_connection_execute(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -147,10 +147,10 @@ sl::support::optional<sl::io::span<char>> db_connection_execute(sl::io::span<con
             params.c_str(), static_cast<int>(params.length()));
     static_conn_registry().put(conn);
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err));
-    return support::empty_span();
+    return support::make_empty_buffer();
 }
 
-sl::support::optional<sl::io::span<char>> db_connection_close(sl::io::span<const char> data) {
+support::buffer db_connection_close(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -174,10 +174,10 @@ sl::support::optional<sl::io::span<char>> db_connection_close(sl::io::span<const
         static_conn_registry().put(conn);
         throw_wilton_error(err, TRACEMSG(err));
     }
-    return support::empty_span();
+    return support::make_empty_buffer();
 }
 
-sl::support::optional<sl::io::span<char>> db_transaction_start(sl::io::span<const char> data) {
+support::buffer db_transaction_start(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -201,12 +201,12 @@ sl::support::optional<sl::io::span<char>> db_transaction_start(sl::io::span<cons
     if (nullptr != err) throw_wilton_error(err, TRACEMSG(err +
             "\ndb_transaction_start error for input data"));
     int64_t thandle = static_tran_registry().put(tran);
-    return support::json_span({
+    return support::make_json_buffer({
         { "transactionHandle", thandle}
     });
 }
 
-sl::support::optional<sl::io::span<char>> db_transaction_commit(sl::io::span<const char> data) {
+support::buffer db_transaction_commit(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -229,10 +229,10 @@ sl::support::optional<sl::io::span<char>> db_transaction_commit(sl::io::span<con
         static_tran_registry().put(tran);
         throw_wilton_error(err, TRACEMSG(err));
     }
-    return support::empty_span();
+    return support::make_empty_buffer();
 }
 
-sl::support::optional<sl::io::span<char>> db_transaction_rollback(sl::io::span<const char> data) {
+support::buffer db_transaction_rollback(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -255,7 +255,7 @@ sl::support::optional<sl::io::span<char>> db_transaction_rollback(sl::io::span<c
         static_tran_registry().put(tran);
         throw_wilton_error(err, TRACEMSG(err));
     }
-    return support::empty_span();
+    return support::make_empty_buffer();
 }
 
 } // namespace
