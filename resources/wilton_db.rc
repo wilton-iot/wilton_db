@@ -12,11 +12,11 @@ BEGIN
         BLOCK "040904E4"
         BEGIN
             VALUE "CompanyName", "Wilton Open-Source Project"
-            VALUE "FileDescription", "Wilton Core Library"
+            VALUE "FileDescription", "Wilton DB Library"
             VALUE "FileVersion", "${WILTON_VERSION_WIN}"
-            VALUE "InternalName", "wilton_core"
+            VALUE "InternalName", "wilton_db"
             VALUE "LegalCopyright", "Wilton Open-Source Project"
-            VALUE "OriginalFilename", "wilton_core.dll"
+            VALUE "OriginalFilename", "wilton_db.dll"
             VALUE "ProductName", "wilton_core"
             VALUE "ProductVersion", "${WILTON_VERSION_WIN}"
         END

@@ -42,6 +42,7 @@ staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
 staticlib_add_subdirectory ( ${STATICLIB_DEPS}/staticlib_orm )
 
 set ( ${PROJECT_NAME}_DEPS
+        staticlib_utils
         staticlib_orm
         soci
         sqlite3
