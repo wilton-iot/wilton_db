@@ -88,8 +88,8 @@ support::buffer db_connection_query(sl::io::span<const char> data) {
     if (nullptr == conn) throw support::wilton_support_exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
-    char* out;
-    int out_len;
+    char* out = nullptr;
+    int out_len = 0;
     char* err = wilton_DBConnection_query(conn, sql.c_str(), static_cast<int>(sql.length()),
             params.c_str(), static_cast<int>(params.length()),
             std::addressof(out), std::addressof(out_len));

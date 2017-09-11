@@ -6,7 +6,7 @@
  */
 
 #ifndef WILTON_DB_H
-#define	WILTON_DB_H
+#define WILTON_DB_H
 
 #include "wilton/wilton.h"
 
@@ -59,5 +59,5 @@ char* wilton_DBTransaction_rollback(
 }
 #endif
 
-#endif	/* WILTON_DB_H */
+#endif /* WILTON_DB_H */
 
