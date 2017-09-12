@@ -11,7 +11,7 @@
 #include "wilton/wilton.h"
 #include "wilton/wiltoncall.h"
 
-#include "wilton/support/wilton_support_exception.hpp"
+#include "wilton/support/exception.hpp"
 
 class errcheck {
 public:
@@ -19,7 +19,7 @@ public:
         if (nullptr != err) {
             auto msg = std::string(err);
             wilton_free(err);
-            throw wilton::support::wilton_support_exception(msg);
+            throw wilton::support::exception(msg);
         }
     }
 };

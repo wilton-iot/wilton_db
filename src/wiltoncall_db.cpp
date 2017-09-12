@@ -72,12 +72,12 @@ support::buffer db_connection_query(sl::io::span<const char> data) {
         } else if ("params" == name) {
             params = fi.val().dumps();
         } else {
-            throw support::wilton_support_exception(TRACEMSG("Unknown data field: [" + name + "]"));
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
     }
-    if (-1 == handle) throw support::wilton_support_exception(TRACEMSG(
+    if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'connectionHandle' not specified"));
-    if (rsql.get().empty()) throw support::wilton_support_exception(TRACEMSG(
+    if (rsql.get().empty()) throw support::exception(TRACEMSG(
             "Required parameter 'sql' not specified"));
     const std::string& sql = rsql.get();
     if (params.empty()) {
@@ -85,7 +85,7 @@ support::buffer db_connection_query(sl::io::span<const char> data) {
     }
     // get handle
     wilton_DBConnection* conn = static_conn_registry().remove(handle);
-    if (nullptr == conn) throw support::wilton_support_exception(TRACEMSG(
+    if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
     char* out = nullptr;
@@ -113,12 +113,12 @@ support::buffer db_connection_execute(sl::io::span<const char> data) {
         } else if ("params" == name) {
             params = fi.val().dumps();
         } else {
-            throw support::wilton_support_exception(TRACEMSG("Unknown data field: [" + name + "]"));
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
     }
-    if (-1 == handle) throw support::wilton_support_exception(TRACEMSG(
+    if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'connectionHandle' not specified"));
-    if (rsql.get().empty()) throw support::wilton_support_exception(TRACEMSG(
+    if (rsql.get().empty()) throw support::exception(TRACEMSG(
             "Required parameter 'sql' not specified"));
     const std::string& sql = rsql.get();
     if (params.empty()) {
@@ -126,7 +126,7 @@ support::buffer db_connection_execute(sl::io::span<const char> data) {
     }
     // get handle
     wilton_DBConnection* conn = static_conn_registry().remove(handle);
-    if (nullptr == conn) throw support::wilton_support_exception(TRACEMSG(
+    if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
     char* err = wilton_DBConnection_execute(conn, sql.c_str(), static_cast<int>(sql.length()),
@@ -145,14 +145,14 @@ support::buffer db_connection_close(sl::io::span<const char> data) {
         if ("connectionHandle" == name) {
             handle = fi.as_int64_or_throw(name);
         } else {
-            throw support::wilton_support_exception(TRACEMSG("Unknown data field: [" + name + "]"));
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
     }
-    if (-1 == handle) throw support::wilton_support_exception(TRACEMSG(
+    if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'connectionHandle' not specified"));
     // get handle
     wilton_DBConnection* conn = static_conn_registry().remove(handle);
-    if (nullptr == conn) throw support::wilton_support_exception(TRACEMSG(
+    if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
     char* err = wilton_DBConnection_close(conn);
@@ -172,14 +172,14 @@ support::buffer db_transaction_start(sl::io::span<const char> data) {
         if ("connectionHandle" == name) {
             handle = fi.as_int64_or_throw(name);
         } else {
-            throw support::wilton_support_exception(TRACEMSG("Unknown data field: [" + name + "]"));
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
     }
-    if (-1 == handle) throw support::wilton_support_exception(TRACEMSG(
+    if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'connectionHandle' not specified"));
     // get handle
     wilton_DBConnection* conn = static_conn_registry().remove(handle);
-    if (nullptr == conn) throw support::wilton_support_exception(TRACEMSG(
+    if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     wilton_DBTransaction* tran;
     char* err = wilton_DBTransaction_start(conn, std::addressof(tran));
@@ -201,14 +201,14 @@ support::buffer db_transaction_commit(sl::io::span<const char> data) {
         if ("transactionHandle" == name) {
             handle = fi.as_int64_or_throw(name);
         } else {
-            throw support::wilton_support_exception(TRACEMSG("Unknown data field: [" + name + "]"));
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
     }
-    if (-1 == handle) throw support::wilton_support_exception(TRACEMSG(
+    if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'transactionHandle' not specified"));
     // get handle
     wilton_DBTransaction* tran = static_tran_registry().remove(handle);
-    if (nullptr == tran) throw support::wilton_support_exception(TRACEMSG(
+    if (nullptr == tran) throw support::exception(TRACEMSG(
             "Invalid 'transactionHandle' parameter specified"));
     char* err = wilton_DBTransaction_commit(tran);
     if (nullptr != err) {
@@ -227,14 +227,14 @@ support::buffer db_transaction_rollback(sl::io::span<const char> data) {
         if ("transactionHandle" == name) {
             handle = fi.as_int64_or_throw(name);
         } else {
-            throw support::wilton_support_exception(TRACEMSG("Unknown data field: [" + name + "]"));
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
     }
-    if (-1 == handle) throw support::wilton_support_exception(TRACEMSG(
+    if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'transactionHandle' not specified"));
     // get handle
     wilton_DBTransaction* tran = static_tran_registry().remove(handle);
-    if (nullptr == tran) throw support::wilton_support_exception(TRACEMSG(
+    if (nullptr == tran) throw support::exception(TRACEMSG(
             "Invalid 'transactionHandle' parameter specified"));
     char* err = wilton_DBTransaction_rollback(tran);
     if (nullptr != err) {
