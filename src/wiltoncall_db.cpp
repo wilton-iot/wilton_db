@@ -6,6 +6,7 @@
  */
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 #include "staticlib/config.hpp"
