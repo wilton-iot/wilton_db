@@ -48,7 +48,7 @@ support::handle_registry<wilton_DBTransaction>& static_tran_registry() {
 
 // calls
 
-support::buffer db_connection_open(sl::io::span<const char> data) {
+support::buffer connection_open(sl::io::span<const char> data) {
     wilton_DBConnection* conn;
     char* err = wilton_DBConnection_open(std::addressof(conn), data.data(), static_cast<int>(data.size()));
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
@@ -58,7 +58,7 @@ support::buffer db_connection_open(sl::io::span<const char> data) {
     });
 }
 
-support::buffer db_connection_query(sl::io::span<const char> data) {
+support::buffer connection_query(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -99,7 +99,7 @@ support::buffer db_connection_query(sl::io::span<const char> data) {
     return support::wrap_wilton_buffer(out, out_len);
 }
 
-support::buffer db_connection_execute(sl::io::span<const char> data) {
+support::buffer connection_execute(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -137,7 +137,7 @@ support::buffer db_connection_execute(sl::io::span<const char> data) {
     return support::make_empty_buffer();
 }
 
-support::buffer db_connection_close(sl::io::span<const char> data) {
+support::buffer connection_close(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -164,7 +164,7 @@ support::buffer db_connection_close(sl::io::span<const char> data) {
     return support::make_empty_buffer();
 }
 
-support::buffer db_transaction_start(sl::io::span<const char> data) {
+support::buffer transaction_start(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -193,7 +193,7 @@ support::buffer db_transaction_start(sl::io::span<const char> data) {
     });
 }
 
-support::buffer db_transaction_commit(sl::io::span<const char> data) {
+support::buffer transaction_commit(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -219,7 +219,7 @@ support::buffer db_transaction_commit(sl::io::span<const char> data) {
     return support::make_empty_buffer();
 }
 
-support::buffer db_transaction_rollback(sl::io::span<const char> data) {
+support::buffer transaction_rollback(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
@@ -250,13 +250,13 @@ support::buffer db_transaction_rollback(sl::io::span<const char> data) {
 
 extern "C" char* wilton_module_init() {
     try {
-        wilton::support::register_wiltoncall("db_connection_open", wilton::db::db_connection_open);
-        wilton::support::register_wiltoncall("db_connection_query", wilton::db::db_connection_query);
-        wilton::support::register_wiltoncall("db_connection_execute", wilton::db::db_connection_execute);
-        wilton::support::register_wiltoncall("db_connection_close", wilton::db::db_connection_close);
-        wilton::support::register_wiltoncall("db_transaction_start", wilton::db::db_transaction_start);
-        wilton::support::register_wiltoncall("db_transaction_commit", wilton::db::db_transaction_commit);
-        wilton::support::register_wiltoncall("db_transaction_rollback", wilton::db::db_transaction_rollback);
+        wilton::support::register_wiltoncall("db_connection_open", wilton::db::connection_open);
+        wilton::support::register_wiltoncall("db_connection_query", wilton::db::connection_query);
+        wilton::support::register_wiltoncall("db_connection_execute", wilton::db::connection_execute);
+        wilton::support::register_wiltoncall("db_connection_close", wilton::db::connection_close);
+        wilton::support::register_wiltoncall("db_transaction_start", wilton::db::transaction_start);
+        wilton::support::register_wiltoncall("db_transaction_commit", wilton::db::transaction_commit);
+        wilton::support::register_wiltoncall("db_transaction_rollback", wilton::db::transaction_rollback);
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
