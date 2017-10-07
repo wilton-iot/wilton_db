@@ -5,27 +5,32 @@ cmake_minimum_required ( VERSION 2.8.12 )
 project ( wilton_db CXX )
 
 # dep options
-set ( SOCI_ENABLE_POSTGRES ON CACHE BOOL "Enable PostgreSQL backend" )
-# todo: use pkg-config
-set ( SOCI_POSTGRES_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/../external_libpq/libpq/include" CACHE STRING "Path to the PostgreSQL headers" )
 
 # dependencies
+set ( ${PROJECT_NAME}_ADDITIONAL_DEPS )
 if ( STATICLIB_TOOLCHAIN MATCHES "windows_[^_]+_[^_]+" )
+    set ( SOCI_ENABLE_POSTGRES ON CACHE BOOL "Enable PostgreSQL backend" )
+    set ( SOCI_POSTGRES_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/../external_libpq/libpq/include" CACHE STRING "Path to the PostgreSQL headers" )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_sqlite )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
+    staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_libpq )
+    set ( ${PROJECT_NAME}_ADDITIONAL_DEPS sqlite3 libpq )
 endif ( )
 if ( WILTON_BUILD_FLAVOUR MATCHES "wheezy" )
+    set ( SOCI_ENABLE_POSTGRES ON CACHE BOOL "Enable PostgreSQL backend" )
+    set ( SOCI_POSTGRES_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/../external_libpq/libpq/include" CACHE STRING "Path to the PostgreSQL headers" )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
+    staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_libpq )
+    set ( ${PROJECT_NAME}_ADDITIONAL_DEPS sqlite3 libpq )
 endif ( )
-staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_libpq )
+
 staticlib_add_subdirectory ( ${STATICLIB_DEPS}/staticlib_orm )
 
 set ( ${PROJECT_NAME}_DEPS
         staticlib_utils
         staticlib_orm
-        soci
-        sqlite3
-        libpq )
+        soci 
+        ${${PROJECT_NAME}_ADDITIONAL_DEPS} )
 staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
 
 # library
@@ -52,7 +57,7 @@ target_link_libraries ( ${PROJECT_NAME} PRIVATE
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE 
         ${CMAKE_CURRENT_LIST_DIR}/src
         ${CMAKE_CURRENT_LIST_DIR}/include
-        ${CMAKE_CURRENT_LIST_DIR}/../../core/include
+        ${WILTON_DIR}/core/include
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
         
 target_compile_options ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_DEPS_PC_CFLAGS_OTHER} )
