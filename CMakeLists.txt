@@ -10,11 +10,14 @@ set ( SOCI_ENABLE_POSTGRES ON CACHE BOOL "Enable PostgreSQL backend" )
 set ( SOCI_POSTGRES_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/../external_libpq/libpq/include" CACHE STRING "Path to the PostgreSQL headers" )
 
 # dependencies
-if ( NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Linux" ) # system dependencies implied on Linux
+if ( STATICLIB_TOOLCHAIN MATCHES "windows_[^_]+_[^_]+" )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_sqlite )
+    staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
+endif ( )
+if ( WILTON_BUILD_FLAVOUR MATCHES "wheezy" )
+    staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
 endif ( )
 staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_libpq )
-staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_soci )
 staticlib_add_subdirectory ( ${STATICLIB_DEPS}/staticlib_orm )
 
 set ( ${PROJECT_NAME}_DEPS
