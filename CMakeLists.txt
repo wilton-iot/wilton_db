@@ -8,7 +8,7 @@ project ( wilton_db CXX )
 
 # dependencies
 set ( ${PROJECT_NAME}_ADDITIONAL_DEPS )
-if ( STATICLIB_TOOLCHAIN MATCHES "(android|windows)_.+" )
+if ( STATICLIB_TOOLCHAIN MATCHES "(android|windows|macosx)_.+" )
     set ( SOCI_ENABLE_POSTGRES ON CACHE BOOL "Enable PostgreSQL backend" )
     set ( SOCI_POSTGRES_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/../external_libpq/libpq/include" CACHE STRING "Path to the PostgreSQL headers" )
     staticlib_add_subdirectory ( ${STATICLIB_DEPS}/external_sqlite )
