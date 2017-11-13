@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 
 #include "staticlib/config.hpp"
@@ -28,19 +29,19 @@ namespace db {
 
 namespace { //anonymous
 
-support::handle_registry<wilton_DBConnection>& static_conn_registry() {
-    static support::handle_registry<wilton_DBConnection> registry {
+std::shared_ptr<support::handle_registry<wilton_DBConnection>> shared_conn_registry() {
+    static auto registry = std::make_shared<support::handle_registry<wilton_DBConnection>>(
         [] (wilton_DBConnection* conn) STATICLIB_NOEXCEPT {
             wilton_DBConnection_close(conn);
-        }};
+        });
     return registry;
 }
 
-support::handle_registry<wilton_DBTransaction>& static_tran_registry() {
-    static support::handle_registry<wilton_DBTransaction> registry {
+std::shared_ptr<support::handle_registry<wilton_DBTransaction>> shared_tran_registry() {
+    static auto registry = std::make_shared<support::handle_registry<wilton_DBTransaction>>(
         [] (wilton_DBTransaction* tran) STATICLIB_NOEXCEPT {
             wilton_DBTransaction_rollback(tran);
-        }};
+        });
     return registry;
 }
 
@@ -52,7 +53,8 @@ support::buffer connection_open(sl::io::span<const char> data) {
     wilton_DBConnection* conn;
     char* err = wilton_DBConnection_open(std::addressof(conn), data.data(), static_cast<int>(data.size()));
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
-    int64_t handle = static_conn_registry().put(conn);
+    auto reg = shared_conn_registry();
+    int64_t handle = reg->put(conn);
     return support::make_json_buffer({
         { "connectionHandle", handle}
     });
@@ -85,7 +87,8 @@ support::buffer connection_query(sl::io::span<const char> data) {
         params = "{}";
     }
     // get handle
-    wilton_DBConnection* conn = static_conn_registry().remove(handle);
+    auto reg = shared_conn_registry();
+    wilton_DBConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
@@ -94,7 +97,7 @@ support::buffer connection_query(sl::io::span<const char> data) {
     char* err = wilton_DBConnection_query(conn, sql.c_str(), static_cast<int>(sql.length()),
             params.c_str(), static_cast<int>(params.length()),
             std::addressof(out), std::addressof(out_len));
-    static_conn_registry().put(conn);
+    reg->put(conn);
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     return support::wrap_wilton_buffer(out, out_len);
 }
@@ -126,13 +129,14 @@ support::buffer connection_execute(sl::io::span<const char> data) {
         params = "{}";
     }
     // get handle
-    wilton_DBConnection* conn = static_conn_registry().remove(handle);
+    auto reg = shared_conn_registry();
+    wilton_DBConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
     char* err = wilton_DBConnection_execute(conn, sql.c_str(), static_cast<int>(sql.length()),
             params.c_str(), static_cast<int>(params.length()));
-    static_conn_registry().put(conn);
+    reg->put(conn);
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     return support::make_empty_buffer();
 }
@@ -152,13 +156,14 @@ support::buffer connection_close(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'connectionHandle' not specified"));
     // get handle
-    wilton_DBConnection* conn = static_conn_registry().remove(handle);
+    auto reg = shared_conn_registry();
+    wilton_DBConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
     char* err = wilton_DBConnection_close(conn);
     if (nullptr != err) {
-        static_conn_registry().put(conn);
+        reg->put(conn);
         support::throw_wilton_error(err, TRACEMSG(err));
     }
     return support::make_empty_buffer();
@@ -179,15 +184,17 @@ support::buffer transaction_start(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'connectionHandle' not specified"));
     // get handle
-    wilton_DBConnection* conn = static_conn_registry().remove(handle);
+    auto creg = shared_conn_registry();
+    wilton_DBConnection* conn = creg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     wilton_DBTransaction* tran;
     char* err = wilton_DBTransaction_start(conn, std::addressof(tran));
-    static_conn_registry().put(conn);
+    creg->put(conn);
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err +
             "\ndb_transaction_start error for input data"));
-    int64_t thandle = static_tran_registry().put(tran);
+    auto treg = shared_tran_registry();
+    int64_t thandle = treg->put(tran);
     return support::make_json_buffer({
         { "transactionHandle", thandle}
     });
@@ -208,12 +215,13 @@ support::buffer transaction_commit(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'transactionHandle' not specified"));
     // get handle
-    wilton_DBTransaction* tran = static_tran_registry().remove(handle);
+    auto treg = shared_tran_registry();
+    wilton_DBTransaction* tran = treg->remove(handle);
     if (nullptr == tran) throw support::exception(TRACEMSG(
             "Invalid 'transactionHandle' parameter specified"));
     char* err = wilton_DBTransaction_commit(tran);
     if (nullptr != err) {
-        static_tran_registry().put(tran);
+        treg->put(tran);
         support::throw_wilton_error(err, TRACEMSG(err));
     }
     return support::make_empty_buffer();
@@ -234,12 +242,13 @@ support::buffer transaction_rollback(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'transactionHandle' not specified"));
     // get handle
-    wilton_DBTransaction* tran = static_tran_registry().remove(handle);
+    auto treg = shared_tran_registry();
+    wilton_DBTransaction* tran = treg->remove(handle);
     if (nullptr == tran) throw support::exception(TRACEMSG(
             "Invalid 'transactionHandle' parameter specified"));
     char* err = wilton_DBTransaction_rollback(tran);
     if (nullptr != err) {
-        static_tran_registry().put(tran);
+        treg->put(tran);
         support::throw_wilton_error(err, TRACEMSG(err));
     }
     return support::make_empty_buffer();
