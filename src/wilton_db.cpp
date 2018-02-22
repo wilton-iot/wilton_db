@@ -31,7 +31,7 @@
 #include "staticlib/orm.hpp"
 #include "staticlib/json.hpp"
 
-#include "wilton/support/alloc_copy.hpp"
+#include "wilton/support/alloc.hpp"
 #include "wilton/support/buffer.hpp"
 #include "wilton/support/handle_registry.hpp"
 #include "wilton/support/logging.hpp"
@@ -116,8 +116,8 @@ char* wilton_DBConnection_query(
         std::vector<sl::json::value> rs = conn->impl().query(sql_text_str, json);
         auto rs_json = sl::json::value(std::move(rs));
         auto span = wilton::support::make_json_buffer(rs_json);
-        *result_set_out = span.value().data();
-        *result_set_len_out = static_cast<int>(span.value().size());
+        *result_set_out = span.data();
+        *result_set_len_out = span.size_int();
         wilton::support::log_debug(LOGGER, "Execution complete, result: [" + rs_json.dumps() + "]");
         return nullptr;
     } catch (const std::exception& e) {

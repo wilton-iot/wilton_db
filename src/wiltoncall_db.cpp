@@ -67,7 +67,7 @@ std::shared_ptr<support::handle_registry<wilton_DBTransaction>> shared_tran_regi
 
 support::buffer connection_open(sl::io::span<const char> data) {
     wilton_DBConnection* conn;
-    char* err = wilton_DBConnection_open(std::addressof(conn), data.data(), static_cast<int>(data.size()));
+    char* err = wilton_DBConnection_open(std::addressof(conn), data.data(), data.size_int());
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     auto reg = shared_conn_registry();
     int64_t handle = reg->put(conn);
@@ -154,7 +154,7 @@ support::buffer connection_execute(sl::io::span<const char> data) {
             params.c_str(), static_cast<int>(params.length()));
     reg->put(conn);
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
-    return support::make_empty_buffer();
+    return support::make_null_buffer();
 }
 
 support::buffer connection_close(sl::io::span<const char> data) {
@@ -182,7 +182,7 @@ support::buffer connection_close(sl::io::span<const char> data) {
         reg->put(conn);
         support::throw_wilton_error(err, TRACEMSG(err));
     }
-    return support::make_empty_buffer();
+    return support::make_null_buffer();
 }
 
 support::buffer transaction_start(sl::io::span<const char> data) {
@@ -240,7 +240,7 @@ support::buffer transaction_commit(sl::io::span<const char> data) {
         treg->put(tran);
         support::throw_wilton_error(err, TRACEMSG(err));
     }
-    return support::make_empty_buffer();
+    return support::make_null_buffer();
 }
 
 support::buffer transaction_rollback(sl::io::span<const char> data) {
@@ -267,7 +267,7 @@ support::buffer transaction_rollback(sl::io::span<const char> data) {
         treg->put(tran);
         support::throw_wilton_error(err, TRACEMSG(err));
     }
-    return support::make_empty_buffer();
+    return support::make_null_buffer();
 }
 
 } // namespace
