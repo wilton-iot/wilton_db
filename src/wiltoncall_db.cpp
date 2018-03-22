@@ -45,6 +45,7 @@ namespace db {
 
 namespace { //anonymous
 
+// initialized from wilton_module_init
 std::shared_ptr<support::handle_registry<wilton_DBConnection>> shared_conn_registry() {
     static auto registry = std::make_shared<support::handle_registry<wilton_DBConnection>>(
         [] (wilton_DBConnection* conn) STATICLIB_NOEXCEPT {
@@ -53,6 +54,7 @@ std::shared_ptr<support::handle_registry<wilton_DBConnection>> shared_conn_regis
     return registry;
 }
 
+// initialized from wilton_module_init
 std::shared_ptr<support::handle_registry<wilton_DBTransaction>> shared_tran_registry() {
     static auto registry = std::make_shared<support::handle_registry<wilton_DBTransaction>>(
         [] (wilton_DBTransaction* tran) STATICLIB_NOEXCEPT {
@@ -275,6 +277,8 @@ support::buffer transaction_rollback(sl::io::span<const char> data) {
 
 extern "C" char* wilton_module_init() {
     try {
+        wilton::db::shared_conn_registry();
+        wilton::db::shared_tran_registry();
         wilton::support::register_wiltoncall("db_connection_open", wilton::db::connection_open);
         wilton::support::register_wiltoncall("db_connection_query", wilton::db::connection_query);
         wilton::support::register_wiltoncall("db_connection_execute", wilton::db::connection_execute);
