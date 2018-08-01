@@ -88,11 +88,6 @@ class row
     std::vector<column_property> properties;
     std::vector<holder*> values; // take separate from standard types
 
-public:
-    row();
-    ~row();
-    row(PGresult *res, int row_pos);
-
     template<typename TypeValue>
     void add_value(TypeValue* value){ // value should be a pointer
         values.push_back(new type_holder<TypeValue>(value));
@@ -104,12 +99,11 @@ public:
     }
 
     void add_column_property(std::string in_name, Oid int_type_id);
-    const std::vector<column_property>& get_column_properties() const { // идея в том что не даем добавлять новые и удалять старые св-ва
-        return properties;
-    }
-
     std::string get_value_as_string(int value_pos);
     void setup_value_from_string(const std::string& str_value, int value_pos);
+public:
+    ~row();
+    row(PGresult *res, int row_pos);
     std::string dump_to_json_string();
 };
 
@@ -117,12 +111,13 @@ class psql_handler
 {
     PGconn *conn;
     PGresult *res;
-    std::string connection_parameters;// = std::string{"host=localhost port=5432 dbname = test user=test2 password=qwerty "};
+    std::string connection_parameters;
     std::string last_error;
     std::string sql_state;
     std::string query;
     std::vector<std::string> names;
 
+    bool handle_result(PGconn *conn, PGresult *res, const std::string& error_message);
 public:
     explicit psql_handler(const std::string& conn_params);
     psql_handler();
@@ -131,7 +126,6 @@ public:
     bool connect();
     void close();
 
-    bool handle_result(PGconn *conn, PGresult *res, const std::string& error_message);
     bool execute_hardcode_statement(PGconn *conn, const std::string& query, const std::string& error_message);
 
     void begin();
@@ -150,8 +144,6 @@ public:
     std::string get_last_error();
     std::string get_execution_result(const std::string& error_msg);
 };
-
-
 
 
 #endif /* PSQL_FUNCTIONS_H */
