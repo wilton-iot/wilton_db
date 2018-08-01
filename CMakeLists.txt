@@ -57,8 +57,11 @@ endif ( )
 
 add_library ( ${PROJECT_NAME} SHARED
         ${CMAKE_CURRENT_LIST_DIR}/src/wilton_db.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/wilton_db_psql.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/wiltoncall_db.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/psql_functions.cpp
         ${CMAKE_CURRENT_LIST_DIR}/include/wilton/wilton_db.h
+        ${CMAKE_CURRENT_LIST_DIR}/include/wilton/wilton_db_psql.h
         ${${PROJECT_NAME}_RESFILE}
         ${${PROJECT_NAME}_DEFFILE} )
         
@@ -72,6 +75,8 @@ target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/include
         ${WILTON_DIR}/core/include
         ${WILTON_DIR}/modules/wilton_logging/include
+        /usr/include/postgresql/
+        /usr/include/postgresql/9.5/server/
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
         
 target_compile_options ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_DEPS_PC_CFLAGS_OTHER} )
