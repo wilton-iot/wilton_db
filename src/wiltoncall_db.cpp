@@ -337,7 +337,7 @@ support::buffer db_pgsql_connection_prepare(sl::io::span<const char> data) {
         } else if ("sql" == field_name) {
             rsql = fi.as_string_nonempty_or_throw(field_name);
         } else if ("name" == field_name) {
-            name = fi.as_string_nonempty_or_throw(field_name);
+            name = fi.as_string_or_throw(field_name);
         } else {
             throw support::exception(TRACEMSG("Unknown data field: [" + field_name + "]"));
         }
@@ -374,7 +374,7 @@ support::buffer db_pgsql_connection_get_prepare_info(sl::io::span<const char> da
         if ("connectionHandle" == field_name) {
             handle = fi.as_int64_or_throw(field_name);
         } else if ("name" == field_name) {
-            name = fi.as_string_nonempty_or_throw(field_name);
+            name = fi.as_string_or_throw(field_name);
         } else {
             throw support::exception(TRACEMSG("Unknown data field: [" + field_name + "]"));
         }
@@ -409,7 +409,7 @@ support::buffer db_pgsql_connection_execute_prepared(sl::io::span<const char> da
         if ("connectionHandle" == field_name) {
             handle = fi.as_int64_or_throw(field_name);
         } else if ("name" == field_name) {
-            name = fi.as_string_nonempty_or_throw(field_name);
+            name = fi.as_string_or_throw(field_name);
         } else {
             throw support::exception(TRACEMSG("Unknown data field: [" + field_name + "]"));
         }
@@ -444,7 +444,7 @@ support::buffer db_pgsql_connection_execute_prepared_with_parameters (sl::io::sp
         if ("connectionHandle" == field_name) {
             handle = fi.as_int64_or_throw(field_name);
         } else if ("name" == field_name) {
-            name = fi.as_string_nonempty_or_throw(field_name);
+            name = fi.as_string_or_throw(field_name);
         } else if ("params" == field_name) {
             params = fi.val().dumps();
         } else {
@@ -484,7 +484,7 @@ support::buffer db_pgsql_connection_deallocate_prepared(sl::io::span<const char>
         if ("connectionHandle" == field_name) {
             handle = fi.as_int64_or_throw(field_name);
         } else if ("name" == field_name) {
-            name = fi.as_string_nonempty_or_throw(field_name);
+            name = fi.as_string_or_throw(field_name);
         } else {
             throw support::exception(TRACEMSG("Unknown data field: [" + field_name + "]"));
         }
@@ -579,8 +579,6 @@ support::buffer db_pgsql_connection_execute_sql_with_parameters (sl::io::span<co
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     return support::wrap_wilton_buffer(out, out_len);
 }
-
-
 
 support::buffer db_pgsql_transaction_begin(sl::io::span<const char> data) {
     // json parse
@@ -694,6 +692,7 @@ extern "C" char* wilton_module_init() {
         wilton::support::register_wiltoncall("db_pgsql_connection_execute_prepared", wilton::db::db_pgsql_connection_execute_prepared);
         wilton::support::register_wiltoncall("db_pgsql_connection_execute_prepared_with_parameters", wilton::db::db_pgsql_connection_execute_prepared_with_parameters);
         wilton::support::register_wiltoncall("db_pgsql_connection_execute_sql_with_parameters", wilton::db::db_pgsql_connection_execute_sql_with_parameters);
+        wilton::support::register_wiltoncall("db_pgsql_connection_deallocate_prepared", wilton::db::db_pgsql_connection_deallocate_prepared);
 
         wilton::support::register_wiltoncall("db_pgsql_transaction_begin", wilton::db::db_pgsql_transaction_begin);
         wilton::support::register_wiltoncall("db_pgsql_transaction_commit", wilton::db::db_pgsql_transaction_commit);

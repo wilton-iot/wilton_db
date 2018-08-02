@@ -113,11 +113,17 @@ class psql_handler
     PGresult *res;
     std::string connection_parameters;
     std::string last_error;
-    std::string sql_state;
-    std::string query;
-    std::vector<std::string> names;
+    std::string prepared_statement_name;
+    std::vector<std::string> last_prepared_names;
 
     bool handle_result(PGconn *conn, PGresult *res, const std::string& error_message);
+    void prepare_params(std::vector<Oid>& types,
+            std::vector<std::string>& values,
+            std::vector<int>& length,
+            std::vector<int>& formats,
+            std::vector<parameters_values>& vals,
+            const std::vector<std::string>& names);
+    std::string parse_query(const std::string &sql_query, std::vector<std::string> &last_prepared_names);
 public:
     explicit psql_handler(const std::string& conn_params);
     psql_handler();

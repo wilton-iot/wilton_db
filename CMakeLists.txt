@@ -75,8 +75,6 @@ target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/include
         ${WILTON_DIR}/core/include
         ${WILTON_DIR}/modules/wilton_logging/include
-        /usr/include/postgresql/
-        /usr/include/postgresql/9.5/server/
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
         
 target_compile_options ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_DEPS_PC_CFLAGS_OTHER} )
