@@ -24,48 +24,6 @@
 
 #include <staticlib/json.hpp>
 
-template <typename T>
-class type_holder;
-
-class holder
-{
-public:
-    holder() {}
-    virtual ~holder() {}
-
-    template<typename T>
-    T get()
-    {
-        type_holder<T>* p = static_cast<type_holder<T> *>(this);
-        if (p)
-        {
-            return p->template value<T>();
-        }
-        else
-        {
-            throw std::bad_cast();
-        }
-    }
-
-private:
-
-    template<typename T>
-    T value();
-};
-template <typename T>
-class type_holder : public holder
-{
-public:
-    type_holder(T * t) : t_(t) {}
-    ~type_holder() { delete t_; }
-
-    template<typename TypeValue>
-    TypeValue value() const { return *t_; }
-
-private:
-    T * t_;
-};
-
 struct parameters_values {
     std::string parameter_name;
     std::string value;
@@ -79,28 +37,17 @@ struct parameters_values {
 struct column_property{
     std::string name;
     Oid type_id;
-    column_property(std::string in_name, Oid int_type_id) : name(in_name), type_id(int_type_id) {}
+    std::string value;
+    column_property(std::string in_name, Oid in_type_id, std::string in_value)
+            : name(in_name), type_id(in_type_id), value(in_value) {}
 };
 
 class row
 {
     // properties
     std::vector<column_property> properties;
-    std::vector<holder*> values; // take separate from standard types
-
-    template<typename TypeValue>
-    void add_value(TypeValue* value){ // value should be a pointer
-        values.push_back(new type_holder<TypeValue>(value));
-    }
-
-    template<typename TypeValue>
-    TypeValue get_value(int i){
-        return values[i]->get<TypeValue>();
-    }
-
-    void add_column_property(std::string in_name, Oid int_type_id);
+    void add_column_property(std::string in_name, Oid in_type_id, std::string in_value);
     std::string get_value_as_string(int value_pos);
-    void setup_value_from_string(const std::string& str_value, int value_pos);
 public:
     ~row();
     row(PGresult *res, int row_pos);
@@ -113,8 +60,7 @@ class psql_handler
     PGresult *res;
     std::string connection_parameters;
     std::string last_error;
-    std::string prepared_statement_name;
-    std::vector<std::string> last_prepared_names;
+    std::map<std::string, std::vector<std::string>> prepared_names;
 
     bool handle_result(PGconn *conn, PGresult *res, const std::string& error_message);
     void prepare_params(std::vector<Oid>& types,

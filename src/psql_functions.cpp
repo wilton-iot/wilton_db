@@ -218,10 +218,10 @@ std::string get_json_result(PGresult *res){
 } // namespace
 
 psql_handler::psql_handler(const std::string &conn_params)
-        : conn(nullptr), res(nullptr), connection_parameters(conn_params), prepared_statement_name("")  {}
+        : conn(nullptr), res(nullptr), connection_parameters(conn_params) {}
 
 psql_handler::psql_handler()
-        : conn(nullptr), res(nullptr), connection_parameters(""), prepared_statement_name("") {}
+        : conn(nullptr), res(nullptr), connection_parameters("") {}
 
 void psql_handler::setup_connection_params(const std::string &conn_params) {
     this->connection_parameters = conn_params;
@@ -353,7 +353,7 @@ void psql_handler::rollback()
 void psql_handler::deallocate_prepared_statement(const std::string &statement_name) {
     std::string query = "DEALLOCATE " + statement_name + ";";
     execute_hardcode_statement(conn, query.c_str(), "Cannot deallocate prepared statement.");
-    prepared_statement_name.clear();
+    prepared_names.erase(statement_name);
 }
 
 
@@ -459,18 +459,14 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
 }
 
 std::string psql_handler::prepare(const std::string &sql_query, const std::string &tmp_statement_name){
-
-    std::string query = parse_query(sql_query, last_prepared_names);
-
-    if (!prepared_statement_name.empty()) {
-        deallocate_prepared_statement(prepared_statement_name);
+    if (prepared_names.count(tmp_statement_name)) {
+        deallocate_prepared_statement(tmp_statement_name);
     }
 
-    // default multi-row query execution
-    res = PQprepare(conn, tmp_statement_name.c_str(), query.c_str(), static_cast<int>(last_prepared_names.size()), NULL);
-    handle_result(conn, res, "PQprepare error");
+    std::string query = parse_query(sql_query, prepared_names[tmp_statement_name]);
 
-    prepared_statement_name = tmp_statement_name;
+    res = PQprepare(conn, tmp_statement_name.c_str(), query.c_str(), static_cast<int>( prepared_names[tmp_statement_name].size()), NULL);
+    handle_result(conn, res, "PQprepare error");
 
     return std::string{};
 }
@@ -478,7 +474,7 @@ std::string psql_handler::get_prepared_info(const std::string &prepared_name){
     res = PQdescribePrepared(conn, prepared_name.c_str());
     ExecStatusType const status = PQresultStatus(res);
     if (PGRES_COMMAND_OK == status) {
-        // Собираем ответ сами и возвращаем:
+        // gather answer
         std::string info{"{"};
         info += "\"params_count\": ";
         info += sl::support::to_string(PQnparams(res));
@@ -514,8 +510,8 @@ std::string psql_handler::execute_prepared_with_parameters(
 
     std::vector<parameters_values> vals;
 
-    setup_params_from_json(vals, parameters, last_prepared_names);
-    prepare_params(params_types, params_values, params_length, params_formats, vals, last_prepared_names);
+    setup_params_from_json(vals, parameters, prepared_names[prepared_name]);
+    prepare_params(params_types, params_values, params_length, params_formats, vals, prepared_names[prepared_name]);
 
     std::vector<const char*> values_ptr;
     for (auto& el: params_values) {
@@ -579,98 +575,52 @@ std::string psql_handler::get_execution_result(const std::string &error_msg){
 }
 
 //////////// ROW CLASS
-row::~row() {
-    for (auto& el : values) {
-        delete el;
-    }
-}
+row::~row() {}
 row::row(PGresult *res, int row_pos) {
     int fields_count = PQnfields(res);
     for (int i = 0; i < fields_count; ++i) {
-        add_column_property(PQfname(res, i), PQftype(res,i));
-    }
-    for (int i = 0; i < fields_count; ++i) {
-        setup_value_from_string(PQgetvalue(res, row_pos, i), i);
+        add_column_property(PQfname(res, i), PQftype(res,i), PQgetvalue(res, row_pos, i));
     }
 }
 
-void row::add_column_property(std::string in_name, Oid int_type_id){
-    properties.emplace_back(in_name, int_type_id);
+void row::add_column_property(std::string in_name, Oid in_type_id, std::string in_value){
+    properties.emplace_back(in_name, in_type_id, in_value);
 }
 std::string row::get_value_as_string(int value_pos){ // converts
-    std::string val{};
+    std::string val{properties[value_pos].value};
     switch(properties[value_pos].type_id){
-    case PSQL_INT4OID:   { val = sl::support::to_string(get_value<int32_t>(value_pos)); break; }
-    case PSQL_INT8OID:   { val = sl::support::to_string(get_value<int64_t>(value_pos)); break; }
-    case PSQL_JSONOID:
-    case PSQL_BOOLOID:
-    case PSQL_TEXTOID:
     case PSQL_INT2ARRAYOID:
-    case PSQL_INT4ARRAYOID:
-    case PSQL_VARCHAROID: { val = get_value<std::string>(value_pos); break; }
-    case PSQL_FLOAT4OID:
-    case PSQL_FLOAT8OID: { val = sl::support::to_string(get_value<double>(value_pos)); break; }
-    default:   { val = "";}
-    }
-    return val;
-}
-
-void row::setup_value_from_string(const std::string &str_value, int value_pos){
-    Oid oid_type = properties[value_pos].type_id;
-    switch(oid_type){
-    case PSQL_INT4OID: {
-        int32_t* val = new int32_t(std::atoi(str_value.c_str()));
-        add_value<int32_t>(val);
-        break;
-    }
-    case PSQL_INT8OID: {
-        int64_t* val = new int64_t(std::atol(str_value.c_str()));
-        add_value<int64_t>(val);
+    case PSQL_INT4ARRAYOID: {
+        const int open_brace_pos = 0;
+        const int close_brace_pos = val.size()-1;
+        const int replace_symbol_amount = 1;
+        val.replace(open_brace_pos, replace_symbol_amount, "[");
+        val.replace(close_brace_pos, replace_symbol_amount, "]");
         break;
     }
     case PSQL_TEXTOID:
     case PSQL_VARCHAROID: {
-        std::string* str = new std::string("\"" + str_value + "\"");
-        add_value<std::string>(str);
-        break;
-    }
-    case PSQL_JSONOID: {
-        std::string* str = new std::string(str_value);
-        add_value<std::string>(str);
-        break;
-    }
-    case PSQL_INT2ARRAYOID:
-    case PSQL_INT4ARRAYOID:{
-        // need raplace psql array braces {} to json array braces []
-        std::string tmp(str_value);
-        const int open_brace_pos = 0;
-        const int close_brace_pos = tmp.size()-1;
-        const int replace_symbol_amount = 1;
-        tmp.replace(open_brace_pos, replace_symbol_amount, "[");
-        tmp.replace(close_brace_pos, replace_symbol_amount, "]");
-        std::string* str = new std::string(tmp);
-        add_value<std::string>(str);
+        val = "\"" + val + "\"";
         break;
     }
     case PSQL_BOOLOID: {
-        std::string* str = nullptr;
-        if ("t" == str_value) { // "t" - true sign for boolean type from PGresult 
-            str = new std::string{"true"};
+        if ("t" == val) { // "t" - true sign for boolean type from PGresult
+            val = std::string{"true"};
         } else {
-            str = new std::string{"false"};
+            val = std::string{"false"};
         }
-        add_value<std::string>(str);
         break;
     }
+    case PSQL_INT4OID:
+    case PSQL_INT8OID:
+    case PSQL_JSONOID:
     case PSQL_FLOAT4OID:
-    case PSQL_FLOAT8OID: {
-        double* val = new double(std::atol(str_value.c_str()));
-        add_value<double>(val);
-        break;
+    case PSQL_FLOAT8OID:
+    default: { break;}
     }
-    default:   {}
-    }
+    return val;
 }
+
 std::string row::dump_to_json_string(){
     std::string json{"{"};
     for (size_t i = 0; i < properties.size(); ++i) {
