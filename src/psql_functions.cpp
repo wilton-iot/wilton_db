@@ -21,37 +21,35 @@
 #include <algorithm>    // std::sort
 #include <stdlib.h>
 
-namespace {
-
 // PostgreSQL types
-#define _INT4OID  23
-#define _INT8OID  20
-#define _JSONOID  114
-#define _BOOLOID  16
-#define _TEXTOID  25
-#define _INT2ARRAYOID  1005
-#define _INT4ARRAYOID  1007
-#define _VARCHAROID  1043
-#define _FLOAT4OID  700
-#define _FLOAT8OID  701
-#define _UNKNOWNOID  705
+#define PSQL_INT4OID  23
+#define PSQL_INT8OID  20
+#define PSQL_JSONOID  114
+#define PSQL_BOOLOID  16
+#define PSQL_TEXTOID  25
+#define PSQL_INT2ARRAYOID  1005
+#define PSQL_INT4ARRAYOID  1007
+#define PSQL_VARCHAROID  1043
+#define PSQL_FLOAT4OID  700
+#define PSQL_FLOAT8OID  701
+#define PSQL_UNKNOWNOID  705
+
+namespace {
 
 void setup_params_from_json_field(
         std::vector<parameters_values>& vals,
         const  staticlib::json::field& fi) {
     std::string value{""};
-    Oid type = _UNKNOWNOID;
+    Oid type = PSQL_UNKNOWNOID;
     int len = 0;
     int format = 0; // text format
-
-    value = fi.val().as_string();
 
     switch (fi.json_type()) {
     case sl::json::type::nullt:
         break;
     case sl::json::type::array:{
         // TODO need to determine array type
-        type = _INT4ARRAYOID;
+        type = PSQL_INT4ARRAYOID;
         value = fi.val().dumps();
 
         const int open_brace_pos = 0;
@@ -63,7 +61,7 @@ void setup_params_from_json_field(
         break;
     }
     case sl::json::type::object: {
-        type = _JSONOID;
+        type = PSQL_JSONOID;
         value = fi.val().dumps();
         while (std::string::npos != value.find("\n")) {
             value.replace(value.find("\n"),1,"");
@@ -71,7 +69,7 @@ void setup_params_from_json_field(
         break;
     }
     case sl::json::type::boolean:{
-        type = _BOOLOID;
+        type = PSQL_BOOLOID;
         if (fi.val().as_bool()) {
             value = "TRUE";
         } else {
@@ -81,17 +79,17 @@ void setup_params_from_json_field(
     }
     case sl::json::type::string:{
         // TODO need to check for reserved words
-        type = _TEXTOID;
+        type = PSQL_TEXTOID;
         value = fi.val().as_string();
         break;
     }
     case sl::json::type::integer:{
-        type = _INT8OID;
+        type = PSQL_INT8OID;
         value = sl::support::to_string(fi.val().as_int64());
         break;
     }
     case sl::json::type::real:{
-        type = _FLOAT8OID;
+        type = PSQL_FLOAT8OID;
         value = sl::support::to_string(fi.val().as_float());
         break;
     }
@@ -103,9 +101,83 @@ void setup_params_from_json_field(
     vals.emplace_back(fi.name(), value, type, len, format);
 }
 
+void setup_params_from_json_array(
+        std::vector<parameters_values>& vals,
+        const  staticlib::json::value& json_value,
+        const std::vector<std::string>& names) {
+    std::string value{};
+    Oid type = PSQL_UNKNOWNOID;
+    int len = 0;
+    int format = 0; // text format
+    std::string name{};
+    if (names.size()) {
+        name = names[vals.size()];
+    } else {
+        name = "$" + sl::support::to_string(vals.size() + 1);
+    }
+
+    switch (json_value.json_type()) {
+    case sl::json::type::nullt:
+        break;
+    case sl::json::type::array:{
+        // TODO need to determine array type
+        type = PSQL_INT4ARRAYOID;
+        value = json_value.dumps();
+
+        const int open_brace_pos = 0;
+        const int close_brace_pos = value.size()-1;
+        const int replace_symbol_amount = 1;
+
+        value.replace(open_brace_pos, replace_symbol_amount, "{");
+        value.replace(close_brace_pos, replace_symbol_amount, "}");
+        break;
+    }
+    case sl::json::type::object: {
+        type = PSQL_JSONOID;
+        value = json_value.dumps();
+        while (std::string::npos != value.find("\n")) {
+            value.replace(value.find("\n"),1,"");
+        }
+        break;
+    }
+    case sl::json::type::boolean:{
+        type = PSQL_BOOLOID;
+        if (json_value.as_bool()) {
+            value = "TRUE";
+        } else {
+            value = "FALSE";
+        }
+        break;
+    }
+    case sl::json::type::string:{
+        // TODO need to check for reserved words
+        type = PSQL_TEXTOID;
+        value = json_value.as_string();
+        break;
+    }
+    case sl::json::type::integer:{
+        type = PSQL_INT8OID;
+        value = sl::support::to_string(json_value.as_int64());
+        break;
+    }
+    case sl::json::type::real:{
+        type = PSQL_FLOAT8OID;
+        value = sl::support::to_string(json_value.as_float());
+        break;
+    }
+    default:
+        throw sl::support::exception("param parse error");
+    }
+
+    len = value.length();
+    vals.emplace_back(name, value, type, len, format);
+}
+
+
 void setup_params_from_json(
         std::vector<parameters_values>& vals,
-        const staticlib::json::value& parameters) {
+        const staticlib::json::value& parameters,
+        const std::vector<std::string>& names) {
     switch (parameters.json_type()) {
     case sl::json::type::object:
         for (const sl::json::field& fi : parameters.as_object()) {
@@ -113,13 +185,15 @@ void setup_params_from_json(
         }
         break;
     case sl::json::type::array:
-        // support only objects
+        for (const sl::json::value& val : parameters.as_array()) {
+            setup_params_from_json_array(vals, val, names);
+        }
         break;
     case sl::json::type::nullt:
-        // support only objects
+        // not supported
         break;
     default:
-        // support only objects
+        setup_params_from_json_array(vals, parameters, names);
         break;
     }
 }
@@ -440,7 +514,7 @@ std::string psql_handler::execute_prepared_with_parameters(
 
     std::vector<parameters_values> vals;
 
-    setup_params_from_json(vals, parameters);
+    setup_params_from_json(vals, parameters, last_prepared_names);
     prepare_params(params_types, params_values, params_length, params_formats, vals, last_prepared_names);
 
     std::vector<const char*> values_ptr;
@@ -473,7 +547,7 @@ std::string psql_handler::execute_sql_with_parameters(
     std::vector<std::string> names;
     std::string query = parse_query(sql_statement, names);
 
-    setup_params_from_json(vals, parameters);
+    setup_params_from_json(vals, parameters, names);
     prepare_params(params_types, params_values, params_length, params_formats, vals, names);
 
     std::vector<const char*> values_ptr;
@@ -526,16 +600,16 @@ void row::add_column_property(std::string in_name, Oid int_type_id){
 std::string row::get_value_as_string(int value_pos){ // converts
     std::string val{};
     switch(properties[value_pos].type_id){
-    case _INT4OID:   { val = sl::support::to_string(get_value<int32_t>(value_pos)); break; }
-    case _INT8OID:   { val = sl::support::to_string(get_value<int64_t>(value_pos)); break; }
-    case _JSONOID:
-    case _BOOLOID:
-    case _TEXTOID:
-    case _INT2ARRAYOID:
-    case _INT4ARRAYOID:
-    case _VARCHAROID: { val = get_value<std::string>(value_pos); break; }
-    case _FLOAT4OID:
-    case _FLOAT8OID: { val = sl::support::to_string(get_value<double>(value_pos)); break; }
+    case PSQL_INT4OID:   { val = sl::support::to_string(get_value<int32_t>(value_pos)); break; }
+    case PSQL_INT8OID:   { val = sl::support::to_string(get_value<int64_t>(value_pos)); break; }
+    case PSQL_JSONOID:
+    case PSQL_BOOLOID:
+    case PSQL_TEXTOID:
+    case PSQL_INT2ARRAYOID:
+    case PSQL_INT4ARRAYOID:
+    case PSQL_VARCHAROID: { val = get_value<std::string>(value_pos); break; }
+    case PSQL_FLOAT4OID:
+    case PSQL_FLOAT8OID: { val = sl::support::to_string(get_value<double>(value_pos)); break; }
     default:   { val = "";}
     }
     return val;
@@ -544,29 +618,29 @@ std::string row::get_value_as_string(int value_pos){ // converts
 void row::setup_value_from_string(const std::string &str_value, int value_pos){
     Oid oid_type = properties[value_pos].type_id;
     switch(oid_type){
-    case _INT4OID: {
+    case PSQL_INT4OID: {
         int32_t* val = new int32_t(std::atoi(str_value.c_str()));
         add_value<int32_t>(val);
         break;
     }
-    case _INT8OID: {
+    case PSQL_INT8OID: {
         int64_t* val = new int64_t(std::atol(str_value.c_str()));
         add_value<int64_t>(val);
         break;
     }
-    case _TEXTOID:
-    case _VARCHAROID: {
+    case PSQL_TEXTOID:
+    case PSQL_VARCHAROID: {
         std::string* str = new std::string("\"" + str_value + "\"");
         add_value<std::string>(str);
         break;
     }
-    case _JSONOID: {
+    case PSQL_JSONOID: {
         std::string* str = new std::string(str_value);
         add_value<std::string>(str);
         break;
     }
-    case _INT2ARRAYOID:
-    case _INT4ARRAYOID:{
+    case PSQL_INT2ARRAYOID:
+    case PSQL_INT4ARRAYOID:{
         // need raplace psql array braces {} to json array braces []
         std::string tmp(str_value);
         const int open_brace_pos = 0;
@@ -578,7 +652,7 @@ void row::setup_value_from_string(const std::string &str_value, int value_pos){
         add_value<std::string>(str);
         break;
     }
-    case _BOOLOID: {
+    case PSQL_BOOLOID: {
         std::string* str = nullptr;
         if ("t" == str_value) { // "t" - true sign for boolean type from PGresult 
             str = new std::string{"true"};
@@ -588,8 +662,8 @@ void row::setup_value_from_string(const std::string &str_value, int value_pos){
         add_value<std::string>(str);
         break;
     }
-    case _FLOAT4OID:
-    case _FLOAT8OID: {
+    case PSQL_FLOAT4OID:
+    case PSQL_FLOAT8OID: {
         double* val = new double(std::atol(str_value.c_str()));
         add_value<double>(val);
         break;
