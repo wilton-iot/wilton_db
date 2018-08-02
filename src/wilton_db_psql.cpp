@@ -67,10 +67,10 @@ char* wilton_db_psql_connection_open(
         if (!res) {
             return wilton::support::alloc_copy(TRACEMSG(conn.get_last_error()));
         }
-        wilton::support::log_debug(logger, "Creating connection, URL: [" + conn_url_str + "] ...");
+        wilton::support::log_debug(logger, "Creating connection by psql, parameters: [" + conn_url_str + "] ...");
         wilton_db_psql_connection* conn_ptr = new wilton_db_psql_connection{std::move(conn)};
         *conn_out = conn_ptr;
-        wilton::support::log_debug(logger, "Connection created, handle: [" + wilton::support::strhandle(conn_ptr) + "]");
+        wilton::support::log_debug(logger, "Connection created by psql, handle: [" + wilton::support::strhandle(conn_ptr) + "]");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
@@ -99,12 +99,13 @@ char* wilton_db_psql_connection_prepare(
         uint32_t sql_text_len_u32 = static_cast<uint32_t> (sql_text_len);
         std::string sql_text_str{sql_text, sql_text_len_u32};
         std::string name = prepare_name_len > 0 ? std::string{prepare_name, static_cast<size_t>(prepare_name_len)} : std::string{""};
-        wilton::support::log_debug(logger, "prepare DQL, SQL: [" + sql_text_str + "]," +
+        wilton::support::log_debug(logger, "prepare SQL: [" + sql_text_str + "]," +
                 " name : [" + name + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
         std::string rs = conn->impl().prepare(sql_text_str, name);
         auto span = wilton::support::make_string_buffer(rs);
         *result_set_out = span.data();
         *result_set_len_out = span.size_int();
+        wilton::support::log_debug(logger, "prepare complete, result: [" + rs + "]");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
@@ -126,12 +127,13 @@ char* wilton_db_psql_connection_get_prepare_info(
     if (nullptr == result_set_len_out) return wilton::support::alloc_copy(TRACEMSG("Null 'result_set_len_out' parameter specified"));
     try {
         std::string name = prepare_name_len > 0 ? std::string{prepare_name, static_cast<size_t>(prepare_name_len)} : std::string{""};
-        wilton::support::log_debug(logger, "get prepare info: name : [" +
+        wilton::support::log_debug(logger, "Get prepare info: name : [" +
                 name + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
         std::string rs = conn->impl().get_prepared_info(name);
         auto span = wilton::support::make_string_buffer(rs);
         *result_set_out = span.data();
         *result_set_len_out = span.size_int();
+        wilton::support::log_debug(logger, "Prepare info recieved: [" + rs + "]");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
@@ -153,7 +155,8 @@ char* wilton_db_psql_connection_execute_prepared(
     if (nullptr == result_set_len_out) return wilton::support::alloc_copy(TRACEMSG("Null 'result_set_len_out' parameter specified"));
     try {
         std::string name = prepare_name_len > 0 ? std::string{prepare_name, static_cast<size_t>(prepare_name_len)} : std::string{""};
-        std::string rs = conn->impl().execute_prepared(name);//sql_text_str, name);
+        wilton::support::log_debug(logger, "Executing prepared SQL: [" + name + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
+        std::string rs = conn->impl().execute_prepared(name);
         auto span = wilton::support::make_string_buffer(rs);
         *result_set_out = span.data();
         *result_set_len_out = span.size_int();
@@ -185,6 +188,8 @@ char* wilton_db_psql_connection_execute_prepared_with_parameters(
         std::string name = prepare_name_len > 0 ? std::string{prepare_name, static_cast<size_t>(prepare_name_len)} : std::string{""};
         uint32_t json_text_len_u32 = static_cast<uint32_t> (params_json_len);
         std::string json_text_str{params_json, json_text_len_u32};
+        wilton::support::log_debug(logger, "Executing prepared SQL: [" + name + "], parameters:" +
+                json_text_str + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
         std::string rs = conn->impl().execute_prepared_with_parameters(name, sl::json::loads(json_text_str));//sql_text_str, name);
         auto span = wilton::support::make_string_buffer(rs);
         *result_set_out = span.data();
@@ -211,11 +216,13 @@ char* wilton_db_psql_connection_execute_sql(
     try {
         uint32_t sql_text_len_u32 = static_cast<uint32_t> (sql_text_len);
         std::string sql_text_str{sql_text, sql_text_len_u32};
-        wilton::support::log_debug(logger, "Executing DQL, SQL: [" + sql_text_str + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
+        wilton::support::log_debug(logger, "Executing SQL: [" +
+                sql_text_str + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
         std::string rs = conn->impl().execute_sql_statement(sql_text_str);
         auto span = wilton::support::make_string_buffer(rs);
         *result_set_out = span.data();
         *result_set_len_out = span.size_int();
+        wilton::support::log_debug(logger, "Execution complete, result: [" + rs + "]");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
@@ -244,12 +251,13 @@ char* wilton_db_psql_connection_execute_sql_with_parameters(
         std::string sql_text_str{sql_text, sql_text_len_u32};
         uint32_t json_text_len_u32 = static_cast<uint32_t> (params_json_len);
         std::string json_text_str{params_json, json_text_len_u32};
-
-        wilton::support::log_debug(logger, "Executing DQL, SQL: [" + sql_text_str + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
+        wilton::support::log_debug(logger, "Executing  SQL: [" + sql_text_str + "], parameters:" +
+                json_text_str + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
         std::string rs = conn->impl().execute_sql_with_parameters(sql_text_str, sl::json::loads(json_text_str));
         auto span = wilton::support::make_string_buffer(rs);
         *result_set_out = span.data();
         *result_set_len_out = span.size_int();
+        wilton::support::log_debug(logger, "Execution complete, result: [" + rs + "]");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
