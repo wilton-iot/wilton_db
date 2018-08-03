@@ -618,6 +618,9 @@ std::string row::get_value_as_string(int value_pos){ // converts
     case PSQL_FLOAT8OID:
     default: { break;}
     }
+    if (val.empty()){
+        val = "null";
+    }
     return val;
 }
 
