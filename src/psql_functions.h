@@ -31,7 +31,9 @@ struct parameters_values {
     int len = 0;
     int format = 0; // text format
     parameters_values(std::string name, std::string val, Oid type, int len, int format)
-        : parameter_name(name), value(val), type(type), len(len), format(format) {}
+        : parameter_name(name), value(val), type(type), len(len), format(format) {
+
+}
 };
 
 struct column_property{
@@ -64,7 +66,7 @@ class psql_handler
 
     bool handle_result(PGconn *conn, PGresult *res, const std::string& error_message);
     void prepare_params(std::vector<Oid>& types,
-            std::vector<std::string>& values,
+            std::vector<const char *> &values,
             std::vector<int>& length,
             std::vector<int>& formats,
             std::vector<parameters_values>& vals,
@@ -95,6 +97,9 @@ public:
 
     std::string get_last_error();
     std::string get_execution_result(const std::string& error_msg);
+
+//    void prepare_query() {
+//    }
 };
 
 

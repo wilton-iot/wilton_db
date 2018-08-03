@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 // PostgreSQL types
+#define PSQL_NULLOID  0
 #define PSQL_INT4OID  23
 #define PSQL_INT8OID  20
 #define PSQL_JSONOID  114
@@ -294,7 +295,7 @@ bool psql_handler::handle_result(PGconn *conn, PGresult *res, const std::string 
 
 void psql_handler::prepare_params(
         std::vector<Oid>& types,
-        std::vector<std::string>& values,
+        std::vector<const char*>& values,
         std::vector<int>& length,
         std::vector<int>& formats,
         std::vector<parameters_values>& vals,
@@ -305,7 +306,11 @@ void psql_handler::prepare_params(
         for (auto& name: names) {
             for (auto& val : vals) {
                 if (!name.compare(val.parameter_name)){
-                    values.push_back(val.value);
+                    if (PSQL_UNKNOWNOID != val.type) {
+                        values.push_back(val.value.c_str());
+                    } else {
+                        values.push_back(nullptr);
+                    }
                     types.push_back(val.type);
                     length.push_back(val.len);
                     formats.push_back(val.format); // text_format
@@ -325,7 +330,11 @@ void psql_handler::prepare_params(
         };
         std::sort(vals.begin(), vals.end(), compare);
         for (auto& el : vals) {
-            values.push_back(el.value);
+            if (PSQL_UNKNOWNOID != el.type) {
+                values.push_back(el.value.c_str());
+            } else {
+                values.push_back(nullptr);
+            }
             types.push_back(el.type);
             length.push_back(el.len);
             formats.push_back(el.format); // text_format
@@ -334,6 +343,7 @@ void psql_handler::prepare_params(
 
 }
 bool psql_handler::execute_hardcode_statement(PGconn *conn, const std::string &query, const std::string &error_message){
+//    prepare_query();
     res = PQexec(conn, query.c_str());
     return handle_result(conn, res, error_message);
 }
@@ -491,10 +501,12 @@ std::string psql_handler::get_prepared_info(const std::string &prepared_name){
 }
 
 std::string psql_handler::execute_prepared(const std::string& prepared_name){
+//    prepare_query();
     res = PQexecPrepared(conn, prepared_name.c_str(), 0, nullptr, NULL, NULL, 0);
     return get_execution_result("PQexecPrepared error");
 }
 std::string psql_handler::execute_sql_statement(const std::string &sql_statement){
+//    prepare_query();
     res = PQexec(conn, sql_statement.c_str());
     return get_execution_result("PQexec error");
 }
@@ -503,7 +515,7 @@ std::string psql_handler::execute_prepared_with_parameters(
         const std::string &prepared_name, const staticlib::json::value &parameters){
     int params_count = 0;
     std::vector<Oid> params_types;
-    std::vector<std::string> params_values;
+    std::vector<const char*> params_values;
     std::vector<int> params_length;
     std::vector<int> params_formats;
     const int text_format = 0;
@@ -513,18 +525,14 @@ std::string psql_handler::execute_prepared_with_parameters(
     setup_params_from_json(vals, parameters, prepared_names[prepared_name]);
     prepare_params(params_types, params_values, params_length, params_formats, vals, prepared_names[prepared_name]);
 
-    std::vector<const char*> values_ptr;
-    for (auto& el: params_values) {
-        values_ptr.push_back(el.c_str());
-    }
     params_count = params_types.size();
-
+//    prepare_query();
     res = PQexecPrepared(conn, prepared_name.c_str(),
-                       params_count,
-                       const_cast<const char* const*>(values_ptr.data()),
-                       const_cast<const int*>(params_length.data()),
-                       const_cast<const int*>(params_formats.data()),
-                       text_format);
+                         params_count,
+                         const_cast<const char* const*>(params_values.data()),
+                         const_cast<const int*>(params_length.data()),
+                         const_cast<const int*>(params_formats.data()),
+                         text_format);
 
     return get_execution_result("PQexecParams error");
 }
@@ -533,7 +541,7 @@ std::string psql_handler::execute_sql_with_parameters(
         const std::string &sql_statement, const staticlib::json::value& parameters) {
     int params_count = 0;
     std::vector<Oid> params_types;
-    std::vector<std::string> params_values;
+    std::vector<const char*> params_values;
     std::vector<int> params_length;
     std::vector<int> params_formats;
     const int text_format = 0;
@@ -546,15 +554,11 @@ std::string psql_handler::execute_sql_with_parameters(
     setup_params_from_json(vals, parameters, names);
     prepare_params(params_types, params_values, params_length, params_formats, vals, names);
 
-    std::vector<const char*> values_ptr;
-    for (auto& el: params_values) {
-        values_ptr.push_back(el.c_str());
-    }
     params_count = params_types.size();
-
+//    prepare_query();
     res = PQexecParams(conn, query.c_str(),
                        params_count, params_types.data(),
-                       const_cast<const char* const*>(values_ptr.data()),
+                       const_cast<const char* const*>(params_values.data()),
                        const_cast<const int*>(params_length.data()),
                        const_cast<const int*>(params_formats.data()),
                        text_format);
@@ -579,7 +583,11 @@ row::~row() {}
 row::row(PGresult *res, int row_pos) {
     int fields_count = PQnfields(res);
     for (int i = 0; i < fields_count; ++i) {
-        add_column_property(PQfname(res, i), PQftype(res,i), PQgetvalue(res, row_pos, i));
+        Oid type = PSQL_NULLOID;
+        if (!PQgetisnull(res, row_pos, i)) {
+            type = PQftype(res,i);
+        }
+        add_column_property(PQfname(res, i), type, PQgetvalue(res, row_pos, i));
     }
 }
 
@@ -606,7 +614,7 @@ std::string row::get_value_as_string(int value_pos){ // converts
     case PSQL_BOOLOID: {
         if ("t" == val) { // "t" - true sign for boolean type from PGresult
             val = std::string{"true"};
-        } else {
+        } else if ("f" == val) {
             val = std::string{"false"};
         }
         break;
