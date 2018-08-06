@@ -218,11 +218,13 @@ std::string get_json_result(PGresult *res){
 
 } // namespace
 
-psql_handler::psql_handler(const std::string &conn_params)
-        : conn(nullptr), res(nullptr), connection_parameters(conn_params) {}
+psql_handler::psql_handler(const std::string &conn_params, bool is_ping_on)
+    : conn(nullptr), res(nullptr), connection_parameters(conn_params), ping_on(is_ping_on) {}
 
-psql_handler::psql_handler()
-        : conn(nullptr), res(nullptr), connection_parameters("") {}
+psql_handler::~psql_handler(){
+    clear_result();
+    close();
+}
 
 void psql_handler::setup_connection_params(const std::string &conn_params) {
     this->connection_parameters = conn_params;
@@ -235,7 +237,7 @@ bool psql_handler::connect() {
     /* Check to see that the backend connection was successfully made */
     if (CONNECTION_OK != PQstatus(conn)) {
         last_error = "Connection to database failed: " + std::string(PQerrorMessage(conn));
-        PQfinish(conn);
+        close();
         return false;
     }
     return true;
@@ -342,10 +344,10 @@ void psql_handler::prepare_params(
     }
 
 }
-bool psql_handler::execute_hardcode_statement(PGconn *conn, const std::string &query, const std::string &error_message){
-//    prepare_query();
+std::string psql_handler::execute_hardcode_statement(PGconn *conn, const std::string &query, const std::string &error_message){
+    prepare_query();
     res = PQexec(conn, query.c_str());
-    return handle_result(conn, res, error_message);
+    return get_execution_result(error_message);
 }
 
 void psql_handler::begin()
@@ -468,17 +470,30 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
     return query;
 }
 
+void psql_handler::clear_result(){
+    if (res) {
+        PQclear(res);
+        res = nullptr;
+    }
+}
+
+psql_handler::psql_handler(psql_handler &&handler)
+    : conn(handler.conn), res(handler.res),
+      connection_parameters(std::move(handler.connection_parameters)),
+      last_error(std::move(handler.last_error)),
+      prepared_names(std::move(handler.prepared_names)),
+      ping_on(handler.ping_on){
+    handler.conn = nullptr;
+    handler.res = nullptr;
+}
+
 std::string psql_handler::prepare(const std::string &sql_query, const std::string &tmp_statement_name){
     if (prepared_names.count(tmp_statement_name)) {
         deallocate_prepared_statement(tmp_statement_name);
     }
-
     std::string query = parse_query(sql_query, prepared_names[tmp_statement_name]);
-
     res = PQprepare(conn, tmp_statement_name.c_str(), query.c_str(), static_cast<int>( prepared_names[tmp_statement_name].size()), NULL);
-    handle_result(conn, res, "PQprepare error");
-
-    return std::string{};
+    return get_execution_result("PQprepare error");
 }
 std::string psql_handler::get_prepared_info(const std::string &prepared_name){
     res = PQdescribePrepared(conn, prepared_name.c_str());
@@ -501,12 +516,12 @@ std::string psql_handler::get_prepared_info(const std::string &prepared_name){
 }
 
 std::string psql_handler::execute_prepared(const std::string& prepared_name){
-//    prepare_query();
+    prepare_query();
     res = PQexecPrepared(conn, prepared_name.c_str(), 0, nullptr, NULL, NULL, 0);
     return get_execution_result("PQexecPrepared error");
 }
 std::string psql_handler::execute_sql_statement(const std::string &sql_statement){
-//    prepare_query();
+    prepare_query();
     res = PQexec(conn, sql_statement.c_str());
     return get_execution_result("PQexec error");
 }
@@ -526,7 +541,7 @@ std::string psql_handler::execute_prepared_with_parameters(
     prepare_params(params_types, params_values, params_length, params_formats, vals, prepared_names[prepared_name]);
 
     params_count = params_types.size();
-//    prepare_query();
+    prepare_query();
     res = PQexecPrepared(conn, prepared_name.c_str(),
                          params_count,
                          const_cast<const char* const*>(params_values.data()),
@@ -555,7 +570,7 @@ std::string psql_handler::execute_sql_with_parameters(
     prepare_params(params_types, params_values, params_length, params_formats, vals, names);
 
     params_count = params_types.size();
-//    prepare_query();
+    prepare_query();
     res = PQexecParams(conn, query.c_str(),
                        params_count, params_types.data(),
                        const_cast<const char* const*>(params_values.data()),
@@ -575,7 +590,18 @@ std::string psql_handler::get_execution_result(const std::string &error_msg){
     if (result) {
         return get_json_result(res);
     }
+    clear_result();
     return std::string{};
+}
+
+void psql_handler::prepare_query() {
+    if (ping_on) {
+        // checking conn alive
+        PGPing ping_result = PQping(connection_parameters.c_str());
+        if (PQPING_OK != ping_result) {
+            throw sl::support::exception("Can't connect to database");
+        }
+    }
 }
 
 //////////// ROW CLASS

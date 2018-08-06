@@ -284,8 +284,25 @@ support::buffer transaction_rollback(sl::io::span<const char> data) {
 
 
 support::buffer db_pgsql_connection_open(sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    auto parameters = std::string{};
+    bool ping_on = true;
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& name = fi.name();
+        if ("parameters" == name) {
+            parameters = fi.as_string_nonempty_or_throw(name);
+        } else if("ping_on" == name) {
+            ping_on = fi.as_bool_or_throw(name);
+        } else  {
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
+        }
+    }
+    if (parameters.empty()) throw support::exception(TRACEMSG(
+            "Required parameter 'parameters' not specified"));
+
     wilton_db_psql_connection* conn;
-    char* err = wilton_db_psql_connection_open(std::addressof(conn), data.data(), data.size_int());
+    char* err = wilton_db_psql_connection_open(std::addressof(conn), parameters.c_str(), parameters.size(), ping_on);
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     auto reg = shared_psql_conn_registry();
     int64_t handle = reg->put(conn);

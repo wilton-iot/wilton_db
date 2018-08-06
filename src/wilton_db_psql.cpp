@@ -54,7 +54,8 @@ public:
 char* wilton_db_psql_connection_open(
         wilton_db_psql_connection** conn_out,
         const char* conn_url,
-        int conn_url_len) /* noexcept */ {
+        int conn_url_len,
+        bool is_ping_on) /* noexcept */ {
     if (nullptr == conn_out) return wilton::support::alloc_copy(TRACEMSG("Null 'conn_out' parameter specified"));
     if (nullptr == conn_url) return wilton::support::alloc_copy(TRACEMSG("Null 'conn_url' parameter specified"));
     if (!sl::support::is_uint16_positive(conn_url_len)) return wilton::support::alloc_copy(TRACEMSG(
@@ -62,7 +63,7 @@ char* wilton_db_psql_connection_open(
     try {
         uint16_t conn_url_len_u16 = static_cast<uint16_t> (conn_url_len);
         std::string conn_url_str{conn_url, conn_url_len_u16};
-        psql_handler conn{conn_url_str};
+        psql_handler conn{conn_url_str, is_ping_on};
         bool res = conn.connect();
         if (!res) {
             return wilton::support::alloc_copy(TRACEMSG(conn.get_last_error()));
@@ -270,6 +271,7 @@ char* wilton_db_psql_connection_close(
     if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
     try {
         wilton::support::log_debug(logger, "Closing connection, handle: [" + wilton::support::strhandle(conn) + "] ...");
+        conn->impl().close();
         delete conn;
         wilton::support::log_debug(logger, "Connection closed");
         return nullptr;

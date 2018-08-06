@@ -27,10 +27,10 @@ extern "C" {
 struct wilton_db_psql_connection;
 typedef struct wilton_db_psql_connection wilton_db_psql_connection;
 
-char* wilton_db_psql_connection_open(
-        wilton_db_psql_connection** conn_out,
+char* wilton_db_psql_connection_open(wilton_db_psql_connection** conn_out,
         const char* conn_url,
-        int conn_url_len);
+        int conn_url_len,
+        bool is_ping_on);
 
 char* wilton_db_psql_connection_prepare(
         wilton_db_psql_connection* conn,

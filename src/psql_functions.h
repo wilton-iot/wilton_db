@@ -31,9 +31,7 @@ struct parameters_values {
     int len = 0;
     int format = 0; // text format
     parameters_values(std::string name, std::string val, Oid type, int len, int format)
-        : parameter_name(name), value(val), type(type), len(len), format(format) {
-
-}
+        : parameter_name(name), value(val), type(type), len(len), format(format) {}
 };
 
 struct column_property{
@@ -63,6 +61,7 @@ class psql_handler
     std::string connection_parameters;
     std::string last_error;
     std::map<std::string, std::vector<std::string>> prepared_names;
+    bool ping_on;
 
     bool handle_result(PGconn *conn, PGresult *res, const std::string& error_message);
     void prepare_params(std::vector<Oid>& types,
@@ -72,15 +71,19 @@ class psql_handler
             std::vector<parameters_values>& vals,
             const std::vector<std::string>& names);
     std::string parse_query(const std::string &sql_query, std::vector<std::string> &last_prepared_names);
+    void clear_result();
+
 public:
-    explicit psql_handler(const std::string& conn_params);
-    psql_handler();
+    psql_handler(const std::string& conn_params, bool is_ping_on);
+    ~psql_handler();
+    // Need to define move constructor because we use raw pointers to incomplete structures PGconn and PGresult
+    psql_handler(psql_handler&& handler);
 
     void setup_connection_params(const std::string& conn_params);
     bool connect();
     void close();
 
-    bool execute_hardcode_statement(PGconn *conn, const std::string& query, const std::string& error_message);
+    std::string execute_hardcode_statement(PGconn *conn, const std::string& query, const std::string& error_message);
 
     void begin();
     void commit();
@@ -98,8 +101,7 @@ public:
     std::string get_last_error();
     std::string get_execution_result(const std::string& error_msg);
 
-//    void prepare_query() {
-//    }
+    void prepare_query();
 };
 
 
