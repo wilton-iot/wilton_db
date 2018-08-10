@@ -32,51 +32,12 @@ char* wilton_db_psql_connection_open(wilton_db_psql_connection** conn_out,
         int conn_url_len,
         bool is_ping_on);
 
-char* wilton_db_psql_connection_prepare(
-        wilton_db_psql_connection* conn,
-        const char* sql_text,
-        int sql_text_len,
-        const char* prepare_name,
-        int prepare_name_len,
-        char** result_set_out,
-        int* result_set_len_out);
-
-char* wilton_db_psql_connection_get_prepare_info(
-        wilton_db_psql_connection* conn,
-        const char* prepare_name,
-        int prepare_name_len,
-        char** result_set_out,
-        int* result_set_len_out);
-
-char* wilton_db_psql_connection_execute_prepared(
-        wilton_db_psql_connection* conn,
-        const char* prepare_name,
-        int prepare_name_len,
-        char** result_set_out,
-        int* result_set_len_out);
-
-char* wilton_db_psql_connection_execute_prepared_with_parameters(
-        wilton_db_psql_connection* conn,
-        const char* prepare_name,
-        int prepare_name_len,
-        const char* params_json,
-        int params_json_len,
-        char** result_set_out,
-        int* result_set_len_out);
-
-char* wilton_db_psql_connection_execute_sql(
-        wilton_db_psql_connection* conn,
-        const char* sql_text,
-        int sql_text_len,
-        char** result_set_out,
-        int* result_set_len_out);
-
-char* wilton_db_psql_connection_execute_sql_with_parameters(
-        wilton_db_psql_connection* conn,
+char* wilton_db_psql_connection_execute_sql(wilton_db_psql_connection* conn,
         const char* sql_text,
         int sql_text_len,
         const char* params_json,
         int params_json_len,
+        bool cache_flag,
         char** result_set_out,
         int* result_set_len_out);
 
@@ -92,10 +53,6 @@ char* wilton_db_psql_transaction_commit(
 char* wilton_db_psql_transaction_rollback(
         wilton_db_psql_connection* conn);
 
-char* wilton_db_psql_connection_deallocate_prepared(
-        wilton_db_psql_connection* conn,
-        const char* prepared_name,
-        int prepared_name_len);
 
 #ifdef __cplusplus
 }

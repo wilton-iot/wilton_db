@@ -21,6 +21,7 @@
 #include <vector>
 #include <sstream>
 #include <typeinfo>
+#include <unordered_map>
 
 #include <staticlib/json.hpp>
 
@@ -61,6 +62,7 @@ class psql_handler
     std::string connection_parameters;
     std::string last_error;
     std::map<std::string, std::vector<std::string>> prepared_names;
+    std::unordered_map<std::string, std::string> queries_cache;
     bool ping_on;
 
     bool handle_result(PGconn *conn, PGresult *res, const std::string& error_message);
@@ -73,6 +75,14 @@ class psql_handler
     std::string parse_query(const std::string &sql_query, std::vector<std::string> &last_prepared_names);
     void clear_result();
 
+    std::string generate_unique_name();
+    bool sql_cached(const std::string &sql);
+    void cache_sql(const std::string& sql, const std::string& name);
+
+    std::string execute_prepared_with_parameters(const std::string& prepared_name, const staticlib::json::value &parameters);
+    std::string execute_sql_with_parameters(const std::string& sql_statement, const staticlib::json::value &parameters);
+    void deallocate_prepared_statement(const std::string& statement_name);
+    std::string prepare_cached(const std::string &sql_query, std::string &query_name);
 public:
     psql_handler(const std::string& conn_params, bool is_ping_on);
     ~psql_handler();
@@ -88,15 +98,14 @@ public:
     void begin();
     void commit();
     void rollback();
-    void deallocate_prepared_statement(const std::string& statement_name);
 
-    std::string prepare(const std::string& sql_query, const std::string& tmp_statement_name);
-    std::string get_prepared_info(const std::string &prepared_name);
+//    std::string prepare(const std::string& sql_query, const std::string& tmp_statement_name);
+//    std::string get_prepared_info(const std::string &prepared_name);
 
-    std::string execute_prepared(const std::string &prepared_name);
-    std::string execute_sql_statement(const std::string& sql_statement);
-    std::string execute_prepared_with_parameters(const std::string& prepared_name, const staticlib::json::value &parameters);
-    std::string execute_sql_with_parameters(const std::string& sql_statement, const staticlib::json::value &parameters);
+//    std::string execute_prepared(const std::string &prepared_name);
+//    std::string execute_sql_statement(const std::string& sql_statement);
+
+    std::string execute_with_parameters(const std::string& sql_statement, const staticlib::json::value &parameters, bool cache_flag);
 
     std::string get_last_error();
     std::string get_execution_result(const std::string& error_msg);
