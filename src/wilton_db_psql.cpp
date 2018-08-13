@@ -254,11 +254,11 @@ char* wilton_db_psql_connection_execute_sql(wilton_db_psql_connection* conn,
         std::string json_text_str{params_json, json_text_len_u32};
         wilton::support::log_debug(logger, "Executing  SQL: [" + sql_text_str + "], parameters:" +
                 json_text_str + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
-        std::string rs = conn->impl().execute_with_parameters(sql_text_str, sl::json::loads(json_text_str), cache_flag);
-        auto span = wilton::support::make_string_buffer(rs);
+        sl::json::value rs = conn->impl().execute_with_parameters(sql_text_str, sl::json::loads(json_text_str), cache_flag);
+        auto span = wilton::support::make_json_buffer(rs);
         *result_set_out = span.data();
         *result_set_len_out = span.size_int();
-        wilton::support::log_debug(logger, "Execution complete, result: [" + rs + "]");
+        wilton::support::log_debug(logger, "Execution complete, result: [" + rs.dumps() + "]");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
