@@ -18,8 +18,6 @@
 #include "staticlib/utils/random_string_generator.hpp"
 #include "psql_functions.h"
 
-#include <arpa/inet.h>
-
 #include <algorithm>    // std::sort
 #include <stdlib.h>
 #include <stack>
@@ -84,8 +82,6 @@ parameters_values get_json_params_values(const sl::json::value& json_value){
 
         value.replace(open_brace_pos, replace_symbol_amount, "{");
         value.replace(close_brace_pos, replace_symbol_amount, "}");
-//        value.insert(value.begin(), '\'');
-//        value.insert(value.end(), '\'');
         break;
     }
     case sl::json::type::object: {
@@ -358,7 +354,7 @@ void psql_handler::prepare_params(
             }
         }
     } else {
-        auto compare = [] (parameters_values& a, parameters_values& b) -> bool {
+        auto compare = [] (const parameters_values& a, const parameters_values& b) -> bool {
             int a_pos = 0;
             int b_pos = 0;
 
