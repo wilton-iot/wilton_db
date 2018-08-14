@@ -76,9 +76,9 @@ parameters_values get_json_params_values(const sl::json::value& json_value){
         type = get_json_array_type(json_value);
         value = json_value.dumps();
 
-        const int open_brace_pos = 0;
-        const int close_brace_pos = value.size()-1;
-        const int replace_symbol_amount = 1;
+        const size_t open_brace_pos = 0;
+        const size_t close_brace_pos = value.size()-1;
+        const size_t replace_symbol_amount = 1;
 
         value.replace(open_brace_pos, replace_symbol_amount, "{");
         value.replace(close_brace_pos, replace_symbol_amount, "}");
@@ -121,7 +121,7 @@ parameters_values get_json_params_values(const sl::json::value& json_value){
     default:
         throw sl::support::exception("param parse error");
     }
-    len = value.length();
+    len = static_cast<int>(value.length());
     return parameters_values("", value, type, len, format);
 }
 
@@ -196,9 +196,9 @@ void prepare_text_array(std::string& val) {
     };
     states state = states::normal;
     states prev_state = states::normal;
-    const int open_brace_pos = 0;
-    const int close_brace_pos = val.size()-1;
-    const int replace_symbol_amount = 1;
+    const size_t open_brace_pos = 0;
+    const size_t close_brace_pos = val.size()-1;
+    const size_t replace_symbol_amount = 1;
     val.replace(open_brace_pos, replace_symbol_amount, "[");
     val.replace(close_brace_pos, replace_symbol_amount, "]");
     const size_t emtpy_array_size = 2;
@@ -519,7 +519,7 @@ std::string psql_handler::generate_unique_name(){
     return name;
 }
 
-bool psql_handler::sql_cached(const std::string& sql){
+size_t psql_handler::sql_cached(const std::string& sql){
     return queries_cache.count(sql);
 }
 
@@ -574,7 +574,7 @@ sl::json::value psql_handler::execute_prepared_with_parameters(
     setup_params_from_json(vals, parameters, prepared_names[prepared_name]);
     prepare_params(params_types, params_values, params_length, params_formats, vals, prepared_names[prepared_name]);
 
-    params_count = params_types.size();
+    params_count = static_cast<int>(params_types.size());
     prepare_query();
     res = PQexecPrepared(conn, prepared_name.c_str(),
                          params_count,
@@ -603,7 +603,7 @@ sl::json::value psql_handler::execute_sql_with_parameters(
     setup_params_from_json(vals, parameters, names);
     prepare_params(params_types, params_values, params_length, params_formats, vals, names);
 
-    params_count = params_types.size();
+    params_count = static_cast<int>(params_types.size());
     prepare_query();
     res = PQexecParams(conn, query.c_str(),
                        params_count, params_types.data(),
@@ -667,7 +667,7 @@ row::row(PGresult *res, int row_pos) {
 void row::add_column_property(std::string in_name, Oid in_type_id, std::string in_value){
     properties.emplace_back(in_name, in_type_id, in_value);
 }
-std::string row::get_value_as_string(int value_pos){ // converts
+std::string row::get_value_as_string(size_t value_pos){ // converts
     std::string val{properties[value_pos].value};
     switch(properties[value_pos].type_id){
     case PSQL_TEXTARRAYOID: {
@@ -678,9 +678,9 @@ std::string row::get_value_as_string(int value_pos){ // converts
     case PSQL_FLOAT8ARRAYOID:
     case PSQL_INT2ARRAYOID:
     case PSQL_INT4ARRAYOID: {
-        const int open_brace_pos = 0;
-        const int close_brace_pos = val.size()-1;
-        const int replace_symbol_amount = 1;
+        const size_t open_brace_pos = 0;
+        const size_t close_brace_pos = val.size()-1;
+        const size_t replace_symbol_amount = 1;
         val.replace(open_brace_pos, replace_symbol_amount, "[");
         val.replace(close_brace_pos, replace_symbol_amount, "]");
         break;
@@ -710,24 +710,6 @@ std::string row::get_value_as_string(int value_pos){ // converts
     }
     return val;
 }
-
-std::string row::dump_to_json_string(){
-    std::string json{"{"};
-    for (size_t i = 0; i < properties.size(); ++i) {
-        json += "\"";
-        json += properties[i].name;
-        json += "\":";
-        json += get_value_as_string(i);
-        json += ", ";
-    }
-    if (properties.size()) {
-        json.pop_back();
-        json.pop_back();
-    }
-    json += "}";
-    return json;
-}
-
 
 sl::json::value row::dump_to_json(){
     sl::json::value json_res;

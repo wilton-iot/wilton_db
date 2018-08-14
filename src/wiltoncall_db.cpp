@@ -302,7 +302,7 @@ support::buffer db_pgsql_connection_open(sl::io::span<const char> data) {
             "Required parameter 'parameters' not specified"));
 
     wilton_db_psql_connection* conn;
-    char* err = wilton_db_psql_connection_open(std::addressof(conn), parameters.c_str(), parameters.size(), ping_on);
+    char* err = wilton_db_psql_connection_open(std::addressof(conn), parameters.c_str(), static_cast<int>(parameters.size()), ping_on);
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     auto reg = shared_psql_conn_registry();
     int64_t handle = reg->put(conn);

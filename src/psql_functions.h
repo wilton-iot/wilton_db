@@ -49,11 +49,10 @@ class row
     // properties
     std::vector<column_property> properties;
     void add_column_property(std::string in_name, Oid in_type_id, std::string in_value);
-    std::string get_value_as_string(int value_pos);
+    std::string get_value_as_string(size_t value_pos);
 public:
     ~row();
     row(PGresult *res, int row_pos);
-    std::string dump_to_json_string();
     sl::json::value dump_to_json();
 };
 
@@ -79,7 +78,7 @@ class psql_handler
     std::string parse_query(const std::string &sql_query, std::vector<std::string> &last_prepared_names);
     void clear_result();
 
-    bool sql_cached(const std::string &sql);
+    size_t sql_cached(const std::string &sql);
     void cache_sql(const std::string& sql, const std::string& name);
 
     staticlib::json::value execute_prepared_with_parameters(const std::string& prepared_name, const staticlib::json::value &parameters);
