@@ -57,8 +57,11 @@ endif ( )
 
 add_library ( ${PROJECT_NAME} SHARED
         ${CMAKE_CURRENT_LIST_DIR}/src/wilton_db.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/wilton_db_psql.cpp
         ${CMAKE_CURRENT_LIST_DIR}/src/wiltoncall_db.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/src/psql_functions.cpp
         ${CMAKE_CURRENT_LIST_DIR}/include/wilton/wilton_db.h
+        ${CMAKE_CURRENT_LIST_DIR}/include/wilton/wilton_db_psql.h
         ${${PROJECT_NAME}_RESFILE}
         ${${PROJECT_NAME}_DEFFILE} )
         

@@ -35,6 +35,7 @@
 #include "wilton/wilton.h"
 #include "wilton/wiltoncall.h"
 #include "wilton/wilton_db.h"
+#include "wilton/wilton_db_psql.h"
 
 #include "wilton/support/handle_registry.hpp"
 #include "wilton/support/buffer.hpp"
@@ -59,6 +60,15 @@ std::shared_ptr<support::handle_registry<wilton_DBTransaction>> shared_tran_regi
     static auto registry = std::make_shared<support::handle_registry<wilton_DBTransaction>>(
         [] (wilton_DBTransaction* tran) STATICLIB_NOEXCEPT {
             wilton_DBTransaction_rollback(tran);
+        });
+    return registry;
+}
+
+// initialized from wilton_module_init
+std::shared_ptr<support::handle_registry<wilton_db_psql_connection>> shared_psql_conn_registry() {
+    static auto registry = std::make_shared<support::handle_registry<wilton_db_psql_connection>>(
+        [] (wilton_db_psql_connection* conn) STATICLIB_NOEXCEPT {
+            wilton_db_psql_connection_close(conn);
         });
     return registry;
 }
@@ -272,6 +282,192 @@ support::buffer transaction_rollback(sl::io::span<const char> data) {
     return support::make_null_buffer();
 }
 
+
+support::buffer db_pgsql_connection_open(sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    auto parameters = std::string{};
+    bool ping_on = true;
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& name = fi.name();
+        if ("parameters" == name) {
+            parameters = fi.as_string_nonempty_or_throw(name);
+        } else if("ping_on" == name) {
+            ping_on = fi.as_bool_or_throw(name);
+        } else  {
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
+        }
+    }
+    if (parameters.empty()) throw support::exception(TRACEMSG(
+            "Required parameter 'parameters' not specified"));
+
+    wilton_db_psql_connection* conn;
+    char* err = wilton_db_psql_connection_open(std::addressof(conn), parameters.c_str(), static_cast<int>(parameters.size()), ping_on);
+    if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
+    auto reg = shared_psql_conn_registry();
+    int64_t handle = reg->put(conn);
+    return support::make_json_buffer({
+        { "connectionHandle", handle}
+    });
+    (void) data;
+    return support::make_null_buffer();
+}
+
+support::buffer db_pgsql_connection_close(sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    int64_t handle = -1;
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& name = fi.name();
+        if ("connectionHandle" == name) {
+            handle = fi.as_int64_or_throw(name);
+        } else {
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
+        }
+    }
+    if (-1 == handle) throw support::exception(TRACEMSG(
+            "Required parameter 'connectionHandle' not specified"));
+    // get handle
+    auto reg = shared_psql_conn_registry();
+    wilton_db_psql_connection* conn = reg->remove(handle);
+    if (nullptr == conn) throw support::exception(TRACEMSG(
+            "Invalid 'connectionHandle' parameter specified"));
+    // call wilton
+    char* err = wilton_db_psql_connection_close(conn);
+    if (nullptr != err) {
+        reg->put(conn);
+        support::throw_wilton_error(err, TRACEMSG(err));
+    }
+    return support::make_null_buffer();
+}
+
+support::buffer db_pgsql_connection_execute_sql (sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    int64_t handle = -1;
+    auto sql_text = std::string{};
+    auto params = std::string{"{}"}; // empty json by default
+    bool cache_flag = true; // ON by default
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& field_name = fi.name();
+        if ("connectionHandle" == field_name) {
+            handle = fi.as_int64_or_throw(field_name);
+        } else if ("sql" == field_name) {
+            sql_text = fi.as_string_nonempty_or_throw(field_name);
+        } else if ("params" == field_name) {
+            params = fi.val().dumps();
+        } else if ("cache" == field_name) {
+            cache_flag = fi.as_bool_or_throw(field_name);
+        } else {
+            throw support::exception(TRACEMSG("Unknown data field: [" + field_name + "]"));
+        }
+    }
+
+    if (-1 == handle) throw support::exception(TRACEMSG(
+            "Required parameter 'connectionHandle' not specified"));
+
+    // get handle
+    auto reg = shared_psql_conn_registry();
+    wilton_db_psql_connection* conn = reg->remove(handle);
+    if (nullptr == conn) throw support::exception(TRACEMSG(
+            "Invalid 'connectionHandle' parameter specified"));
+    // call wilton
+    char* out = nullptr;
+    int out_len = 0;
+    char* err = wilton_db_psql_connection_execute_sql(conn,
+            sql_text.c_str(), static_cast<int>(sql_text.length()),
+            params.c_str(), static_cast<int>(params.length()), cache_flag,
+            std::addressof(out), std::addressof(out_len));
+    reg->put(conn);
+    if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
+    return support::wrap_wilton_buffer(out, out_len);
+}
+
+support::buffer db_pgsql_transaction_begin(sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    int64_t handle = -1;
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& name = fi.name();
+        if ("connectionHandle" == name) {
+            handle = fi.as_int64_or_throw(name);
+        } else {
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
+        }
+    }
+    if (-1 == handle) throw support::exception(TRACEMSG(
+            "Required parameter 'connectionHandle' not specified"));
+    // get handle
+    auto reg = shared_psql_conn_registry();
+    wilton_db_psql_connection* conn = reg->remove(handle);
+    if (nullptr == conn) throw support::exception(TRACEMSG(
+            "Invalid 'connectionHandle' parameter specified"));
+    // call wilton
+    char* err = wilton_db_psql_transaction_begin(conn);
+    reg->put(conn);
+    if (nullptr != err) {
+        support::throw_wilton_error(err, TRACEMSG(err));
+    }
+    return support::make_null_buffer();
+}
+
+support::buffer db_pgsql_transaction_commit(sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    int64_t handle = -1;
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& name = fi.name();
+        if ("connectionHandle" == name) {
+            handle = fi.as_int64_or_throw(name);
+        } else {
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
+        }
+    }
+    if (-1 == handle) throw support::exception(TRACEMSG(
+            "Required parameter 'connectionHandle' not specified"));
+    // get handle
+    auto reg = shared_psql_conn_registry();
+    wilton_db_psql_connection* conn = reg->remove(handle);
+    if (nullptr == conn) throw support::exception(TRACEMSG(
+            "Invalid 'connectionHandle' parameter specified"));
+    // call wilton
+    char* err = wilton_db_psql_transaction_commit(conn);
+    reg->put(conn);
+    if (nullptr != err) {
+        support::throw_wilton_error(err, TRACEMSG(err));
+    }
+    return support::make_null_buffer();
+}
+
+support::buffer db_pgsql_transaction_rollback(sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    int64_t handle = -1;
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& name = fi.name();
+        if ("connectionHandle" == name) {
+            handle = fi.as_int64_or_throw(name);
+        } else {
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
+        }
+    }
+    if (-1 == handle) throw support::exception(TRACEMSG(
+            "Required parameter 'connectionHandle' not specified"));
+    // get handle
+    auto reg = shared_psql_conn_registry();
+    wilton_db_psql_connection* conn = reg->remove(handle);
+    if (nullptr == conn) throw support::exception(TRACEMSG(
+            "Invalid 'connectionHandle' parameter specified"));
+    // call wilton
+    char* err = wilton_db_psql_transaction_rollback(conn);
+    reg->put(conn);
+    if (nullptr != err) {
+        support::throw_wilton_error(err, TRACEMSG(err));
+    }
+    return support::make_null_buffer();
+}
+
+
 } // namespace
 }
 
@@ -279,6 +475,8 @@ extern "C" char* wilton_module_init() {
     try {
         wilton::db::shared_conn_registry();
         wilton::db::shared_tran_registry();
+        wilton::db::shared_psql_conn_registry();
+
         wilton::support::register_wiltoncall("db_connection_open", wilton::db::connection_open);
         wilton::support::register_wiltoncall("db_connection_query", wilton::db::connection_query);
         wilton::support::register_wiltoncall("db_connection_execute", wilton::db::connection_execute);
@@ -286,6 +484,15 @@ extern "C" char* wilton_module_init() {
         wilton::support::register_wiltoncall("db_transaction_start", wilton::db::transaction_start);
         wilton::support::register_wiltoncall("db_transaction_commit", wilton::db::transaction_commit);
         wilton::support::register_wiltoncall("db_transaction_rollback", wilton::db::transaction_rollback);
+        // postgresql
+        wilton::support::register_wiltoncall("db_pgsql_connection_open", wilton::db::db_pgsql_connection_open);
+        wilton::support::register_wiltoncall("db_pgsql_connection_close", wilton::db::db_pgsql_connection_close);
+        wilton::support::register_wiltoncall("db_pgsql_connection_execute_sql", wilton::db::db_pgsql_connection_execute_sql);
+
+        wilton::support::register_wiltoncall("db_pgsql_transaction_begin", wilton::db::db_pgsql_transaction_begin);
+        wilton::support::register_wiltoncall("db_pgsql_transaction_commit", wilton::db::db_pgsql_transaction_commit);
+        wilton::support::register_wiltoncall("db_pgsql_transaction_rollback", wilton::db::db_pgsql_transaction_rollback);
+
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
