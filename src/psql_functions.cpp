@@ -402,13 +402,13 @@ void psql_handler::deallocate_prepared_statement(const std::string &statement_na
     prepared_names.erase(statement_name);
 }
 
-std::string psql_handler::parse_query(const std::string& sql_query, std::vector<std::string>& names){
+std::string psql_handler::parse_query(const std::string& sql_query, std::vector<std::string> &last_prepared_names){
     enum { normal, in_quotes, in_name } state = normal;
-
+    std::map<std::string, std::string> names;
     std::string name;
     std::string query;
     int position = 1;
-    names.clear();
+    last_prepared_names.clear();
 
     for (std::string::const_iterator it = sql_query.begin(), end = sql_query.end();
          it != end; ++it)
@@ -466,13 +466,17 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
             }
             else // end of name
             {
-                names.push_back(name);
-                name.clear();
-                std::stringstream ss;
-                ss << '$' << position++;
-                query += ss.str();
+                if (!names.count(name)) {
+                    std::stringstream ss;
+                    ss << '$' << position++;
+                    names[name] = ss.str();
+                    query += ss.str();
+                } else {
+                    query += names[name];
+                }
                 query += *it;
                 state = normal;
+                name.clear();
 
                 // Check whether the named parameter is immediatelly
                 // followed by a cast operator (e.g. :name::float)
@@ -494,10 +498,18 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
 
     if (state == in_name)
     {
-        names.push_back(name);
-        std::ostringstream ss;
-        ss << '$' << position++;
-        query += ss.str();
+        if (!names.count(name)) {
+            std::stringstream ss;
+            ss << '$' << position++;
+            names[name] = ss.str();
+            query += ss.str();
+        } else {
+            query += names[name];
+        }
+    }
+
+    for (auto& el : names) {
+        last_prepared_names.push_back(el.first);
     }
 
     return query;
