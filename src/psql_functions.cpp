@@ -190,6 +190,19 @@ sl::json::value get_result_as_json(PGresult *res){
 }
 
 
+void prepare_text(std::string& val){
+    std::stack<size_t> poses;
+    for (size_t i = 0; i < val.size() - 1; ++i) {
+        if ('\"' == val[i+1] && val[i] != '\\') {
+            poses.push(i+1);
+        }
+    }
+    while (poses.size()) {
+        val.insert(poses.top(), "\\");
+        poses.pop();
+    }
+}
+
 void prepare_text_array(std::string& val) {
     enum class states {
         normal, in_string, manual_open
@@ -699,6 +712,7 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
     }
     case PSQL_TEXTOID:
     case PSQL_VARCHAROID: {
+        prepare_text(val);
         val = "\"" + val + "\"";
         break;
     }
