@@ -484,6 +484,7 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
                     ss << '$' << position++;
                     names[name] = ss.str();
                     query += ss.str();
+                    last_prepared_names.push_back(name);
                 } else {
                     query += names[name];
                 }
@@ -516,13 +517,10 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
             ss << '$' << position++;
             names[name] = ss.str();
             query += ss.str();
+            last_prepared_names.push_back(name);
         } else {
             query += names[name];
         }
-    }
-
-    for (auto& el : names) {
-        last_prepared_names.push_back(el.first);
     }
 
     return query;
