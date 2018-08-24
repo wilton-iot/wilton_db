@@ -722,7 +722,8 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
     case PSQL_INT8OID:
     case PSQL_JSONBOID:
     case PSQL_FLOAT4OID:
-    case PSQL_FLOAT8OID: {
+    case PSQL_FLOAT8OID:
+    case PSQL_NULLOID:{
         break;
     }
     case PSQL_TEXTOID:
