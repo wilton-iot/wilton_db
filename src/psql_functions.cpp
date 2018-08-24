@@ -24,6 +24,7 @@
 
 // PostgreSQL types
 #define PSQL_NULLOID  0
+#define PSQL_INT2OID  21
 #define PSQL_INT4OID  23
 #define PSQL_INT8OID  20
 //#define PSQL_JSONOID  114
@@ -708,12 +709,6 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
         val.replace(close_brace_pos, replace_symbol_amount, "]");
         break;
     }
-    case PSQL_TEXTOID:
-    case PSQL_VARCHAROID: {
-        prepare_text(val);
-        val = "\"" + val + "\"";
-        break;
-    }
     case PSQL_BOOLOID: {
         if ("t" == val) { // "t" - true sign for boolean type from PGresult
             val = std::string{"true"};
@@ -722,12 +717,21 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
         }
         break;
     }
+    case PSQL_INT2OID:
     case PSQL_INT4OID:
     case PSQL_INT8OID:
     case PSQL_JSONBOID:
     case PSQL_FLOAT4OID:
-    case PSQL_FLOAT8OID:
-    default: { break;}
+    case PSQL_FLOAT8OID: {
+        break;
+    }
+    case PSQL_TEXTOID:
+    case PSQL_VARCHAROID:
+    default: {
+        prepare_text(val);
+        val = "\"" + val + "\"";
+        break;
+    }
     }
     if (val.empty()){
         val = "null";
