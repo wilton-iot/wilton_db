@@ -27,7 +27,7 @@
 #define PSQL_INT2OID  21
 #define PSQL_INT4OID  23
 #define PSQL_INT8OID  20
-//#define PSQL_JSONOID  114
+#define PSQL_JSONOID  114
 #define PSQL_JSONBOID  3802
 #define PSQL_BOOLOID  16
 #define PSQL_TEXTOID  25
@@ -720,6 +720,7 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
     case PSQL_INT2OID:
     case PSQL_INT4OID:
     case PSQL_INT8OID:
+    case PSQL_JSONOID:
     case PSQL_JSONBOID:
     case PSQL_FLOAT4OID:
     case PSQL_FLOAT8OID:
