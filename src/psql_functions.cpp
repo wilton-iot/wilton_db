@@ -24,9 +24,10 @@
 
 // PostgreSQL types
 #define PSQL_NULLOID  0
+#define PSQL_INT2OID  21
 #define PSQL_INT4OID  23
 #define PSQL_INT8OID  20
-//#define PSQL_JSONOID  114
+#define PSQL_JSONOID  114
 #define PSQL_JSONBOID  3802
 #define PSQL_BOOLOID  16
 #define PSQL_TEXTOID  25
@@ -189,6 +190,19 @@ sl::json::value get_result_as_json(PGresult *res){
     return json;
 }
 
+
+void prepare_text(std::string& val){
+    std::stack<size_t> poses;
+    for (size_t i = 0; i < val.size() - 1; ++i) {
+        if ('\"' == val[i+1] && val[i] != '\\') {
+            poses.push(i+1);
+        }
+    }
+    while (poses.size()) {
+        val.insert(poses.top(), "\\");
+        poses.pop();
+    }
+}
 
 void prepare_text_array(std::string& val) {
     enum class states {
@@ -402,13 +416,13 @@ void psql_handler::deallocate_prepared_statement(const std::string &statement_na
     prepared_names.erase(statement_name);
 }
 
-std::string psql_handler::parse_query(const std::string& sql_query, std::vector<std::string>& names){
+std::string psql_handler::parse_query(const std::string& sql_query, std::vector<std::string> &last_prepared_names){
     enum { normal, in_quotes, in_name } state = normal;
-
+    std::map<std::string, std::string> names;
     std::string name;
     std::string query;
     int position = 1;
-    names.clear();
+    last_prepared_names.clear();
 
     for (std::string::const_iterator it = sql_query.begin(), end = sql_query.end();
          it != end; ++it)
@@ -466,13 +480,18 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
             }
             else // end of name
             {
-                names.push_back(name);
-                name.clear();
-                std::stringstream ss;
-                ss << '$' << position++;
-                query += ss.str();
+                if (!names.count(name)) {
+                    std::stringstream ss;
+                    ss << '$' << position++;
+                    names[name] = ss.str();
+                    query += ss.str();
+                    last_prepared_names.push_back(name);
+                } else {
+                    query += names[name];
+                }
                 query += *it;
                 state = normal;
+                name.clear();
 
                 // Check whether the named parameter is immediatelly
                 // followed by a cast operator (e.g. :name::float)
@@ -494,10 +513,15 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
 
     if (state == in_name)
     {
-        names.push_back(name);
-        std::ostringstream ss;
-        ss << '$' << position++;
-        query += ss.str();
+        if (!names.count(name)) {
+            std::stringstream ss;
+            ss << '$' << position++;
+            names[name] = ss.str();
+            query += ss.str();
+            last_prepared_names.push_back(name);
+        } else {
+            query += names[name];
+        }
     }
 
     return query;
@@ -685,11 +709,6 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
         val.replace(close_brace_pos, replace_symbol_amount, "]");
         break;
     }
-    case PSQL_TEXTOID:
-    case PSQL_VARCHAROID: {
-        val = "\"" + val + "\"";
-        break;
-    }
     case PSQL_BOOLOID: {
         if ("t" == val) { // "t" - true sign for boolean type from PGresult
             val = std::string{"true"};
@@ -698,12 +717,23 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
         }
         break;
     }
+    case PSQL_INT2OID:
     case PSQL_INT4OID:
     case PSQL_INT8OID:
+    case PSQL_JSONOID:
     case PSQL_JSONBOID:
     case PSQL_FLOAT4OID:
     case PSQL_FLOAT8OID:
-    default: { break;}
+    case PSQL_NULLOID:{
+        break;
+    }
+    case PSQL_TEXTOID:
+    case PSQL_VARCHAROID:
+    default: {
+        prepare_text(val);
+        val = "\"" + val + "\"";
+        break;
+    }
     }
     if (val.empty()){
         val = "null";
