@@ -484,6 +484,7 @@ extern "C" char* wilton_module_init() {
         wilton::support::register_wiltoncall("db_transaction_start", wilton::db::transaction_start);
         wilton::support::register_wiltoncall("db_transaction_commit", wilton::db::transaction_commit);
         wilton::support::register_wiltoncall("db_transaction_rollback", wilton::db::transaction_rollback);
+
         // postgresql
         wilton::support::register_wiltoncall("db_pgsql_connection_open", wilton::db::db_pgsql_connection_open);
         wilton::support::register_wiltoncall("db_pgsql_connection_close", wilton::db::db_pgsql_connection_close);

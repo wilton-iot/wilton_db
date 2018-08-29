@@ -34,7 +34,7 @@
 
 namespace { // anonymous
 
-const std::string logger = std::string("wilton.DBConnection_psql");
+const std::string logger = std::string("wilton.PGConnection");
 
 } // namespace
 
