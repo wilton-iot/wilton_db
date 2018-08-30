@@ -297,7 +297,7 @@ res(nullptr),
 connection_parameters(conn_params),
 ping_on(is_ping_on) { }
 
-~impl(){
+~impl() STATICLIB_NOEXCEPT {
     clear_result();
     close();
 }
