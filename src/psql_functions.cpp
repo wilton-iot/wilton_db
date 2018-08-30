@@ -17,9 +17,11 @@
 #include <algorithm>    // std::sort
 #include <stack>
 
-#include "staticlib/support/exception.hpp"
+#include "wilton/support/exception.hpp"
 #include "staticlib/support/to_string.hpp"
 #include "staticlib/utils/random_string_generator.hpp"
+#include "staticlib/pimpl/forward_macros.hpp"
+#include "staticlib/utils.hpp"
 
 #include "psql_functions.hpp"
 
@@ -38,9 +40,17 @@
 #define PSQL_UNKNOWNOID  705
 #define PSQL_INT2ARRAYOID  1005
 #define PSQL_INT4ARRAYOID  1007
+#define PSQL_INT8ARRAYOID  1016
 #define PSQL_TEXTARRAYOID 1009
+#define PSQL_CHARARRAYOID  1014
+#define PSQL_VARCHARARRAYOID  1015
 #define PSQL_FLOAT4ARRAYOID 1021
 #define PSQL_FLOAT8ARRAYOID 1022
+
+
+namespace wilton{
+namespace db{
+namespace pgsql{
 
 namespace { // anonymous
 
@@ -121,7 +131,7 @@ parameters_values get_json_params_values(const sl::json::value& json_value){
         break;
     }
     default:
-        throw sl::support::exception("param parse error");
+        throw wilton::support::exception(TRACEMSG("param parse error"));
     }
     len = static_cast<int>(value.length());
     return parameters_values("", value, type, len, format);
@@ -270,22 +280,33 @@ void prepare_text_array(std::string& val) {
 
 } // namespace
 
-psql_handler::psql_handler(const std::string& conn_params, int is_ping_on) :
+class psql_handler::impl : public staticlib::pimpl::object::impl {
+protected:
+    PGconn *conn;
+    PGresult *res;
+    std::string connection_parameters;
+    std::string last_error;
+    std::map<std::string, std::vector<std::string>> prepared_names;
+    std::unordered_map<std::string, std::string> queries_cache;
+    int ping_on;
+    sl::utils::random_string_generator names_generator;
+public:    
+impl(const std::string& conn_params, int is_ping_on) :
 conn(nullptr),
 res(nullptr),
 connection_parameters(conn_params),
 ping_on(is_ping_on) { }
 
-psql_handler::~psql_handler(){
+~impl(){
     clear_result();
     close();
 }
 
-void psql_handler::setup_connection_params(const std::string& conn_params) {
+void setup_connection_params(psql_handler&, const std::string& conn_params) {
     this->connection_parameters = conn_params;
 }
 
-bool psql_handler::connect() {
+bool connect(psql_handler&) {
     /* Make a connection to the database */
     this->conn = PQconnectdb(connection_parameters.c_str());
 
@@ -298,14 +319,14 @@ bool psql_handler::connect() {
     return true;
 }
 
-void psql_handler::close(){
+void close(){
     if (nullptr != conn) {
         PQfinish(conn);
         conn = nullptr;
     }
 }
 
-bool psql_handler::handle_result(PGconn* conn, PGresult* res, const std::string& error_message){
+bool handle_result(PGconn* conn, PGresult* res, const std::string& error_message){
     std::string msg(error_message);
 
     ExecStatusType const status = PQresultStatus(res);
@@ -345,10 +366,10 @@ bool psql_handler::handle_result(PGconn* conn, PGresult* res, const std::string&
         sqlstate = blank_sql_state;
     }
 
-    throw sl::support::exception(msg);
+    throw wilton::support::exception(TRACEMSG(msg));
 }
 
-void psql_handler::prepare_params(
+void prepare_params(
         std::vector<Oid>& types,
         std::vector<const char*>& values,
         std::vector<int>& length,
@@ -398,34 +419,34 @@ void psql_handler::prepare_params(
 
 }
 
-sl::json::value psql_handler::execute_hardcode_statement(PGconn* conn, const std::string& query, const std::string& error_message) {
+sl::json::value execute_hardcode_statement(PGconn* conn, const std::string& query, const std::string& error_message) {
     prepare_query();
     res = PQexec(conn, query.c_str());
     return get_execution_result(error_message);
 }
 
-void psql_handler::begin()
+void begin(psql_handler&)
 {
     execute_hardcode_statement(conn, "BEGIN", "Cannot begin transaction.");
 }
 
-void psql_handler::commit()
+void commit(psql_handler&)
 {
     execute_hardcode_statement(conn, "COMMIT", "Cannot commit transaction.");
 }
 
-void psql_handler::rollback()
+void rollback(psql_handler&)
 {
     execute_hardcode_statement(conn, "ROLLBACK", "Cannot rollback transaction.");
 }
 
-void psql_handler::deallocate_prepared_statement(const std::string& statement_name) {
+void deallocate_prepared_statement(const std::string& statement_name) {
     std::string query = "DEALLOCATE " + statement_name + ";";
     execute_hardcode_statement(conn, query.c_str(), "Cannot deallocate prepared statement.");
     prepared_names.erase(statement_name);
 }
 
-std::string psql_handler::parse_query(const std::string& sql_query, std::vector<std::string>& last_prepared_names){
+std::string parse_query(const std::string& sql_query, std::vector<std::string>& last_prepared_names){
     enum { normal, in_quotes, in_name } state = normal;
     std::map<std::string, std::string> names;
     std::string name;
@@ -536,14 +557,14 @@ std::string psql_handler::parse_query(const std::string& sql_query, std::vector<
     return query;
 }
 
-void psql_handler::clear_result(){
+void clear_result(){
     if (res) {
         PQclear(res);
         res = nullptr;
     }
 }
 
-std::string psql_handler::generate_unique_name(){
+std::string generate_unique_name(){
     const int gen_length = 32;
     std::string name{};
     do {
@@ -552,26 +573,15 @@ std::string psql_handler::generate_unique_name(){
     return name;
 }
 
-size_t psql_handler::sql_cached(const std::string& sql){
+size_t sql_cached(const std::string& sql){
     return queries_cache.count(sql);
 }
 
-void psql_handler::cache_sql(const std::string& sql, const std::string& name){
+void cache_sql(const std::string& sql, const std::string& name){
     queries_cache[sql] = name;
 }
 
-psql_handler::psql_handler(psql_handler&& handler) :
-conn(handler.conn),
-res(handler.res),
-connection_parameters(std::move(handler.connection_parameters)),
-last_error(std::move(handler.last_error)),
-prepared_names(std::move(handler.prepared_names)),
-ping_on(handler.ping_on) {
-    handler.conn = nullptr;
-    handler.res = nullptr;
-}
-
-sl::json::value psql_handler::prepare_cached(const std::string& sql_query, std::string& query_name){
+sl::json::value prepare_cached(const std::string& sql_query, std::string& query_name){
     if (sql_cached(sql_query)) {
         query_name = queries_cache[sql_query];
         return std::string{};
@@ -585,7 +595,7 @@ sl::json::value psql_handler::prepare_cached(const std::string& sql_query, std::
     }
 }
 
-sl::json::value psql_handler::get_command_status_as_json(PGresult* result) {
+sl::json::value get_command_status_as_json(PGresult* result) {
     std::vector<sl::json::field> fields;
     sl::json::value val(PQcmdStatus(result));
     fields.emplace_back("cmd_status", std::move(val));
@@ -594,7 +604,7 @@ sl::json::value psql_handler::get_command_status_as_json(PGresult* result) {
     return json;
 }
 
-sl::json::value psql_handler::execute_prepared_with_parameters(
+sl::json::value execute_prepared_with_parameters(
         const std::string& prepared_name, const staticlib::json::value &parameters){
     int params_count = 0;
     std::vector<Oid> params_types;
@@ -620,7 +630,7 @@ sl::json::value psql_handler::execute_prepared_with_parameters(
     return get_execution_result("PQexecParams error");
 }
 
-sl::json::value psql_handler::execute_sql_with_parameters(
+sl::json::value execute_sql_with_parameters(
         const std::string& sql_statement, const staticlib::json::value& parameters) {
     int params_count = 0;
     std::vector<Oid> params_types;
@@ -649,7 +659,7 @@ sl::json::value psql_handler::execute_sql_with_parameters(
     return get_execution_result("PQexecParams error");
 }
 
-sl::json::value psql_handler::execute_with_parameters(const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag){
+sl::json::value execute_with_parameters(psql_handler&, const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag){
     if (cache_flag) {
         std::string prepared_name{};
         prepare_cached(sql_statement, prepared_name);
@@ -658,11 +668,11 @@ sl::json::value psql_handler::execute_with_parameters(const std::string& sql_sta
     return execute_sql_with_parameters(sql_statement, parameters);
 }
 
-std::string psql_handler::get_last_error() {
+std::string get_last_error(psql_handler&) {
     return last_error;
 }
 
-sl::json::value psql_handler::get_execution_result(const std::string &error_msg){
+sl::json::value get_execution_result(const std::string &error_msg){
     // TODO add return string if result equal to false
     bool result = handle_result(conn, res, error_msg);
     sl::json::value json_result{};
@@ -675,15 +685,26 @@ sl::json::value psql_handler::get_execution_result(const std::string &error_msg)
     return json_result;
 }
 
-void psql_handler::prepare_query() {
+void prepare_query() {
     if (ping_on) {
         // checking conn alive
         PGPing ping_result = PQping(connection_parameters.c_str());
         if (PQPING_OK != ping_result) {
-            throw sl::support::exception("Can't connect to database");
+            throw wilton::support::exception(TRACEMSG("Can't connect to database"));
         }
     }
 }
+
+};
+
+PIMPL_FORWARD_CONSTRUCTOR(psql_handler, (const std::string&)(int), (), wilton::support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, void, setup_connection_params, (const std::string&), (), support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, bool, connect, (), (), support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, void, begin, (), (), support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, void, commit, (), (), support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, void, rollback, (), (), support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, sl::json::value, execute_with_parameters, (const std::string&)(const staticlib::json::value&)(int), (), support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, std::string, get_last_error, (), (), support::exception);
 
 //////////// ROW CLASS
 row::~row() {}
@@ -704,6 +725,8 @@ void row::add_column_property(std::string in_name, Oid in_type_id, std::string i
 std::string row::get_value_as_string(size_t value_pos){ // converts
     std::string val{properties[value_pos].value};
     switch(properties[value_pos].type_id){
+    case PSQL_CHARARRAYOID:
+    case PSQL_VARCHARARRAYOID:
     case PSQL_TEXTARRAYOID: {
         prepare_text_array(val);
         break;
@@ -711,7 +734,8 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
     case PSQL_FLOAT4ARRAYOID:
     case PSQL_FLOAT8ARRAYOID:
     case PSQL_INT2ARRAYOID:
-    case PSQL_INT4ARRAYOID: {
+    case PSQL_INT4ARRAYOID:
+    case PSQL_INT8ARRAYOID:{
         const size_t open_brace_pos = 0;
         const size_t close_brace_pos = val.size()-1;
         const size_t replace_symbol_amount = 1;
@@ -762,3 +786,7 @@ sl::json::value row::dump_to_json(){
     json_res.set_object(std::move(fields));
     return json_res;
 }
+
+} // pgsql
+} // db
+} // wilton
