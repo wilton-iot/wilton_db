@@ -74,7 +74,7 @@ class psql_handler {
     std::string last_error;
     std::map<std::string, std::vector<std::string>> prepared_names;
     std::unordered_map<std::string, std::string> queries_cache;
-    bool ping_on;
+    int ping_on;
     sl::utils::random_string_generator names_generator;
 
     std::string generate_unique_name();
@@ -107,7 +107,7 @@ class psql_handler {
     sl::json::value get_command_status_as_json(PGresult *result);
 
 public:
-    psql_handler(const std::string& conn_params, bool is_ping_on);
+    psql_handler(const std::string& conn_params, int is_ping_on);
 
     ~psql_handler();
 
@@ -128,7 +128,7 @@ public:
 
     void rollback();
 
-    staticlib::json::value execute_with_parameters(const std::string& sql_statement, const staticlib::json::value& parameters, bool cache_flag);
+    staticlib::json::value execute_with_parameters(const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag);
 
     std::string get_last_error();
 

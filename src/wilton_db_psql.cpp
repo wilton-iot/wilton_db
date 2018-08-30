@@ -62,7 +62,7 @@ char* wilton_PGConnection_open(wilton_PGConnection** conn_out,
     try {
         uint16_t conn_url_len_u16 = static_cast<uint16_t> (conn_url_len);
         std::string conn_url_str{conn_url, conn_url_len_u16};
-        psql_handler conn{conn_url_str, static_cast<bool>(is_ping_on)};
+        psql_handler conn{conn_url_str, is_ping_on};
         bool res = conn.connect();
         if (!res) {
             return wilton::support::alloc_copy(TRACEMSG(conn.get_last_error()));
@@ -101,7 +101,7 @@ char* wilton_PGConnection_execute_sql(wilton_PGConnection* conn,
         std::string json_text_str{params_json, json_text_len_u32};
         wilton::support::log_debug(logger, "Executing  SQL: [" + sql_text_str + "], parameters:" +
                 json_text_str + "], handle: [" + wilton::support::strhandle(conn) + "] ...");
-        sl::json::value rs = conn->impl().execute_with_parameters(sql_text_str, sl::json::loads(json_text_str), static_cast<bool>(cache_flag));
+        sl::json::value rs = conn->impl().execute_with_parameters(sql_text_str, sl::json::loads(json_text_str), cache_flag);
         auto span = wilton::support::make_json_buffer(rs);
         *result_set_out = span.data();
         *result_set_len_out = span.size_int();
