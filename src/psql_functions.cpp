@@ -277,7 +277,6 @@ void prepare_text_array(std::string& val) {
 
 } // namespace
 
-
 class psql_handler::impl : public staticlib::pimpl::object::impl {
 protected:
     PGconn *conn;
@@ -286,10 +285,10 @@ protected:
     std::string last_error;
     std::map<std::string, std::vector<std::string>> prepared_names;
     std::unordered_map<std::string, std::string> queries_cache;
-    bool ping_on;
+    int ping_on;
     sl::utils::random_string_generator names_generator;
 public:    
-impl(const std::string& conn_params, bool is_ping_on) :
+impl(const std::string& conn_params, int is_ping_on) :
 conn(nullptr),
 res(nullptr),
 connection_parameters(conn_params),
@@ -657,7 +656,7 @@ sl::json::value execute_sql_with_parameters(
     return get_execution_result("PQexecParams error");
 }
 
-sl::json::value execute_with_parameters(psql_handler&, const std::string& sql_statement, const staticlib::json::value& parameters, bool cache_flag){
+sl::json::value execute_with_parameters(psql_handler&, const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag){
     if (cache_flag) {
         std::string prepared_name{};
         prepare_cached(sql_statement, prepared_name);

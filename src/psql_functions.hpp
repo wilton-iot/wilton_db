@@ -82,7 +82,7 @@ protected:
 public:
     PIMPL_CONSTRUCTOR(psql_handler)
 
-    psql_handler(const std::string& conn_params, bool is_ping_on);
+    psql_handler(const std::string& conn_params, int is_ping_on);
 
     void setup_connection_params(const std::string& conn_params);
 
@@ -94,7 +94,7 @@ public:
 
     void rollback();
 
-    staticlib::json::value execute_with_parameters(const std::string& sql_statement, const staticlib::json::value& parameters, bool cache_flag);
+    staticlib::json::value execute_with_parameters(const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag);
 
     std::string get_last_error();
 };
