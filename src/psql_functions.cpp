@@ -21,7 +21,7 @@
 #include "staticlib/support/to_string.hpp"
 #include "staticlib/utils/random_string_generator.hpp"
 
-#include "psql_functions.h"
+#include "psql_functions.hpp"
 
 // PostgreSQL types
 #define PSQL_NULLOID  0
@@ -270,7 +270,7 @@ void prepare_text_array(std::string& val) {
 
 } // namespace
 
-psql_handler::psql_handler(const std::string& conn_params, bool is_ping_on) :
+psql_handler::psql_handler(const std::string& conn_params, int is_ping_on) :
 conn(nullptr),
 res(nullptr),
 connection_parameters(conn_params),
@@ -649,7 +649,7 @@ sl::json::value psql_handler::execute_sql_with_parameters(
     return get_execution_result("PQexecParams error");
 }
 
-sl::json::value psql_handler::execute_with_parameters(const std::string& sql_statement, const staticlib::json::value& parameters, bool cache_flag){
+sl::json::value psql_handler::execute_with_parameters(const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag){
     if (cache_flag) {
         std::string prepared_name{};
         prepare_cached(sql_statement, prepared_name);
