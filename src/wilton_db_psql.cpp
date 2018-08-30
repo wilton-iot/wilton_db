@@ -30,7 +30,7 @@
 #include "wilton/support/logging.hpp"
 
 #include <libpq-fe.h>
-#include "psql_functions.h"
+#include "psql_functions.hpp"
 
 namespace { // anonymous
 
@@ -38,24 +38,23 @@ const std::string logger = std::string("wilton.PGConnection");
 
 } // namespace
 
-struct wilton_db_psql_connection {
+struct wilton_PGConnection {
 private:
-    psql_handler conn;
+    wilton::db::pgsql::psql_handler conn;
 
 public:
-    wilton_db_psql_connection(psql_handler&& conn) :
+    wilton_PGConnection(wilton::db::pgsql::psql_handler&& conn) :
     conn(std::move(conn)) { }
 
-    psql_handler& impl() {
+    wilton::db::pgsql::psql_handler& impl() {
         return conn;
     }
 };
 
-char* wilton_db_psql_connection_open(
-        wilton_db_psql_connection** conn_out,
+char* wilton_PGConnection_open(wilton_PGConnection** conn_out,
         const char* conn_url,
         int conn_url_len,
-        bool is_ping_on) /* noexcept */ {
+        int is_ping_on) /* noexcept */ {
     if (nullptr == conn_out) return wilton::support::alloc_copy(TRACEMSG("Null 'conn_out' parameter specified"));
     if (nullptr == conn_url) return wilton::support::alloc_copy(TRACEMSG("Null 'conn_url' parameter specified"));
     if (!sl::support::is_uint16_positive(conn_url_len)) return wilton::support::alloc_copy(TRACEMSG(
@@ -63,13 +62,13 @@ char* wilton_db_psql_connection_open(
     try {
         uint16_t conn_url_len_u16 = static_cast<uint16_t> (conn_url_len);
         std::string conn_url_str{conn_url, conn_url_len_u16};
-        psql_handler conn{conn_url_str, is_ping_on};
+        wilton::db::pgsql::psql_handler conn{conn_url_str, is_ping_on};
         bool res = conn.connect();
         if (!res) {
             return wilton::support::alloc_copy(TRACEMSG(conn.get_last_error()));
         }
         wilton::support::log_debug(logger, "Creating connection by psql, parameters: [" + conn_url_str + "] ...");
-        wilton_db_psql_connection* conn_ptr = new wilton_db_psql_connection{std::move(conn)};
+        wilton_PGConnection* conn_ptr = new wilton_PGConnection{std::move(conn)};
         *conn_out = conn_ptr;
         wilton::support::log_debug(logger, "Connection created by psql, handle: [" + wilton::support::strhandle(conn_ptr) + "]");
         return nullptr;
@@ -78,12 +77,12 @@ char* wilton_db_psql_connection_open(
     }
 }
 
-char* wilton_db_psql_connection_execute_sql(wilton_db_psql_connection* conn,
+char* wilton_PGConnection_execute_sql(wilton_PGConnection* conn,
         const char* sql_text,
         int sql_text_len,
         const char* params_json,
         int params_json_len,
-        bool cache_flag,
+        int cache_flag,
         char** result_set_out,
         int* result_set_len_out) {
     if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
@@ -114,12 +113,12 @@ char* wilton_db_psql_connection_execute_sql(wilton_db_psql_connection* conn,
 }
 
 
-char* wilton_db_psql_connection_close(
-        wilton_db_psql_connection* conn) {
+char* wilton_PGConnection_close(
+        wilton_PGConnection* conn) {
     if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
     try {
         wilton::support::log_debug(logger, "Closing connection, handle: [" + wilton::support::strhandle(conn) + "] ...");
-        conn->impl().close();
+//        conn->impl().close();
         delete conn;
         wilton::support::log_debug(logger, "Connection closed");
         return nullptr;
@@ -128,8 +127,8 @@ char* wilton_db_psql_connection_close(
     } 
 }
 
- char* wilton_db_psql_transaction_begin(
-         wilton_db_psql_connection* conn) {
+ char* wilton_PGConnection_transaction_begin(
+         wilton_PGConnection* conn) {
     if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
     try {
         wilton::support::log_debug(logger, "Starting transaction, connection handle: [" + wilton::support::strhandle(conn) + "] ...");
@@ -141,8 +140,8 @@ char* wilton_db_psql_connection_close(
     }
  }
 
- char* wilton_db_psql_transaction_commit(
-         wilton_db_psql_connection* conn) {
+ char* wilton_PGConnection_transaction_commit(
+         wilton_PGConnection* conn) {
      if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
      try {
          wilton::support::log_debug(logger, "Committing transaction, handle: [" + wilton::support::strhandle(conn) + "] ...");
@@ -154,8 +153,8 @@ char* wilton_db_psql_connection_close(
      }
  }
 
-char* wilton_db_psql_transaction_rollback(
-        wilton_db_psql_connection* conn) {
+char* wilton_PGConnection_transaction_rollback(
+        wilton_PGConnection* conn) {
     if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
     try {
         wilton::support::log_debug(logger, "Rolling back transaction, handle: [" + wilton::support::strhandle(conn) + "] ...");

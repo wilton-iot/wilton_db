@@ -21,5 +21,12 @@ EXPORTS
     wilton_DBTransaction_commit
     wilton_DBTransaction_rollback
 
+    wilton_PGConnection_open
+	wilton_PGConnection_execute_sql
+	wilton_PGConnection_close
+	wilton_PGConnection_transaction_begin
+	wilton_PGConnection_transaction_commit
+	wilton_PGConnection_transaction_rollback
+
     wilton_module_init
 

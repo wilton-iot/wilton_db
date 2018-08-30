@@ -21,7 +21,7 @@
 #include "staticlib/support/to_string.hpp"
 #include "staticlib/utils/random_string_generator.hpp"
 
-#include "psql_functions.h"
+#include "psql_functions.hpp"
 
 // PostgreSQL types
 #define PSQL_NULLOID  0

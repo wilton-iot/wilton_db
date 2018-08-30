@@ -65,10 +65,10 @@ std::shared_ptr<support::handle_registry<wilton_DBTransaction>> shared_tran_regi
 }
 
 // initialized from wilton_module_init
-std::shared_ptr<support::handle_registry<wilton_db_psql_connection>> shared_psql_conn_registry() {
-    static auto registry = std::make_shared<support::handle_registry<wilton_db_psql_connection>>(
-        [] (wilton_db_psql_connection* conn) STATICLIB_NOEXCEPT {
-            wilton_db_psql_connection_close(conn);
+std::shared_ptr<support::handle_registry<wilton_PGConnection>> shared_psql_conn_registry() {
+    static auto registry = std::make_shared<support::handle_registry<wilton_PGConnection>>(
+        [] (wilton_PGConnection* conn) STATICLIB_NOEXCEPT {
+            wilton_PGConnection_close(conn);
         });
     return registry;
 }
@@ -301,8 +301,8 @@ support::buffer db_pgsql_connection_open(sl::io::span<const char> data) {
     if (parameters.empty()) throw support::exception(TRACEMSG(
             "Required parameter 'parameters' not specified"));
 
-    wilton_db_psql_connection* conn;
-    char* err = wilton_db_psql_connection_open(std::addressof(conn), parameters.c_str(), static_cast<int>(parameters.size()), ping_on);
+    wilton_PGConnection* conn;
+    char* err = wilton_PGConnection_open(std::addressof(conn), parameters.c_str(), static_cast<int>(parameters.size()), ping_on);
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     auto reg = shared_psql_conn_registry();
     int64_t handle = reg->put(conn);
@@ -329,11 +329,11 @@ support::buffer db_pgsql_connection_close(sl::io::span<const char> data) {
             "Required parameter 'connectionHandle' not specified"));
     // get handle
     auto reg = shared_psql_conn_registry();
-    wilton_db_psql_connection* conn = reg->remove(handle);
+    wilton_PGConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
-    char* err = wilton_db_psql_connection_close(conn);
+    char* err = wilton_PGConnection_close(conn);
     if (nullptr != err) {
         reg->put(conn);
         support::throw_wilton_error(err, TRACEMSG(err));
@@ -368,13 +368,13 @@ support::buffer db_pgsql_connection_execute_sql (sl::io::span<const char> data) 
 
     // get handle
     auto reg = shared_psql_conn_registry();
-    wilton_db_psql_connection* conn = reg->remove(handle);
+    wilton_PGConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
     char* out = nullptr;
     int out_len = 0;
-    char* err = wilton_db_psql_connection_execute_sql(conn,
+    char* err = wilton_PGConnection_execute_sql(conn,
             sql_text.c_str(), static_cast<int>(sql_text.length()),
             params.c_str(), static_cast<int>(params.length()), cache_flag,
             std::addressof(out), std::addressof(out_len));
@@ -399,11 +399,11 @@ support::buffer db_pgsql_transaction_begin(sl::io::span<const char> data) {
             "Required parameter 'connectionHandle' not specified"));
     // get handle
     auto reg = shared_psql_conn_registry();
-    wilton_db_psql_connection* conn = reg->remove(handle);
+    wilton_PGConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
-    char* err = wilton_db_psql_transaction_begin(conn);
+    char* err = wilton_PGConnection_transaction_begin(conn);
     reg->put(conn);
     if (nullptr != err) {
         support::throw_wilton_error(err, TRACEMSG(err));
@@ -427,11 +427,11 @@ support::buffer db_pgsql_transaction_commit(sl::io::span<const char> data) {
             "Required parameter 'connectionHandle' not specified"));
     // get handle
     auto reg = shared_psql_conn_registry();
-    wilton_db_psql_connection* conn = reg->remove(handle);
+    wilton_PGConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
-    char* err = wilton_db_psql_transaction_commit(conn);
+    char* err = wilton_PGConnection_transaction_commit(conn);
     reg->put(conn);
     if (nullptr != err) {
         support::throw_wilton_error(err, TRACEMSG(err));
@@ -455,11 +455,11 @@ support::buffer db_pgsql_transaction_rollback(sl::io::span<const char> data) {
             "Required parameter 'connectionHandle' not specified"));
     // get handle
     auto reg = shared_psql_conn_registry();
-    wilton_db_psql_connection* conn = reg->remove(handle);
+    wilton_PGConnection* conn = reg->remove(handle);
     if (nullptr == conn) throw support::exception(TRACEMSG(
             "Invalid 'connectionHandle' parameter specified"));
     // call wilton
-    char* err = wilton_db_psql_transaction_rollback(conn);
+    char* err = wilton_PGConnection_transaction_rollback(conn);
     reg->put(conn);
     if (nullptr != err) {
         support::throw_wilton_error(err, TRACEMSG(err));

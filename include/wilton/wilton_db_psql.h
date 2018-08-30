@@ -24,34 +24,34 @@
 extern "C" {
 #endif
 
-struct wilton_db_psql_connection;
-typedef struct wilton_db_psql_connection wilton_db_psql_connection;
+struct wilton_PGConnection;
+typedef struct wilton_PGConnection wilton_PGConnection;
 
-char* wilton_db_psql_connection_open(wilton_db_psql_connection** conn_out,
+char* wilton_PGConnection_open(wilton_PGConnection** conn_out,
         const char* conn_url,
         int conn_url_len,
-        bool is_ping_on);
+        int is_ping_on);
 
-char* wilton_db_psql_connection_execute_sql(wilton_db_psql_connection* conn,
+char* wilton_PGConnection_execute_sql(wilton_PGConnection* conn,
         const char* sql_text,
         int sql_text_len,
         const char* params_json,
         int params_json_len,
-        bool cache_flag,
+        int cache_flag,
         char** result_set_out,
         int* result_set_len_out);
 
-char* wilton_db_psql_connection_close(
-        wilton_db_psql_connection* conn);
+char* wilton_PGConnection_close(
+        wilton_PGConnection* conn);
 
-char* wilton_db_psql_transaction_begin(
-        wilton_db_psql_connection* conn);
+char* wilton_PGConnection_transaction_begin(
+        wilton_PGConnection* conn);
 
-char* wilton_db_psql_transaction_commit(
-        wilton_db_psql_connection* conn);
+char* wilton_PGConnection_transaction_commit(
+        wilton_PGConnection* conn);
 
-char* wilton_db_psql_transaction_rollback(
-        wilton_db_psql_connection* conn);
+char* wilton_PGConnection_transaction_rollback(
+        wilton_PGConnection* conn);
 
 
 #ifdef __cplusplus
