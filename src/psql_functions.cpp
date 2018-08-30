@@ -40,7 +40,10 @@
 #define PSQL_UNKNOWNOID  705
 #define PSQL_INT2ARRAYOID  1005
 #define PSQL_INT4ARRAYOID  1007
+#define PSQL_INT8ARRAYOID  1016
 #define PSQL_TEXTARRAYOID 1009
+#define PSQL_CHARARRAYOID  1014
+#define PSQL_VARCHARARRAYOID  1015
 #define PSQL_FLOAT4ARRAYOID 1021
 #define PSQL_FLOAT8ARRAYOID 1022
 
@@ -694,13 +697,13 @@ void prepare_query() {
 
 };
 
-PIMPL_FORWARD_CONSTRUCTOR(psql_handler, (const std::string&)(bool), (), wilton::support::exception);
+PIMPL_FORWARD_CONSTRUCTOR(psql_handler, (const std::string&)(int), (), wilton::support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, void, setup_connection_params, (const std::string&), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, bool, connect, (), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, void, begin, (), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, void, commit, (), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, void, rollback, (), (), support::exception);
-PIMPL_FORWARD_METHOD(psql_handler, sl::json::value, execute_with_parameters, (const std::string&)(const staticlib::json::value&)(bool), (), support::exception);
+PIMPL_FORWARD_METHOD(psql_handler, sl::json::value, execute_with_parameters, (const std::string&)(const staticlib::json::value&)(int), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, std::string, get_last_error, (), (), support::exception);
 
 //////////// ROW CLASS
@@ -722,6 +725,8 @@ void row::add_column_property(std::string in_name, Oid in_type_id, std::string i
 std::string row::get_value_as_string(size_t value_pos){ // converts
     std::string val{properties[value_pos].value};
     switch(properties[value_pos].type_id){
+    case PSQL_CHARARRAYOID:
+    case PSQL_VARCHARARRAYOID:
     case PSQL_TEXTARRAYOID: {
         prepare_text_array(val);
         break;
@@ -729,7 +734,8 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
     case PSQL_FLOAT4ARRAYOID:
     case PSQL_FLOAT8ARRAYOID:
     case PSQL_INT2ARRAYOID:
-    case PSQL_INT4ARRAYOID: {
+    case PSQL_INT4ARRAYOID:
+    case PSQL_INT8ARRAYOID:{
         const size_t open_brace_pos = 0;
         const size_t close_brace_pos = val.size()-1;
         const size_t replace_symbol_amount = 1;
