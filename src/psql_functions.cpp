@@ -17,7 +17,7 @@
 #include <algorithm>    // std::sort
 #include <stack>
 
-#include "staticlib/support/exception.hpp"
+#include "wilton/support/exception.hpp"
 #include "staticlib/support/to_string.hpp"
 #include "staticlib/utils/random_string_generator.hpp"
 
@@ -41,6 +41,11 @@
 #define PSQL_TEXTARRAYOID 1009
 #define PSQL_FLOAT4ARRAYOID 1021
 #define PSQL_FLOAT8ARRAYOID 1022
+
+
+namespace wilton{
+namespace db{
+namespace pgsql{
 
 namespace { // anonymous
 
@@ -121,7 +126,7 @@ parameters_values get_json_params_values(const sl::json::value& json_value){
         break;
     }
     default:
-        throw sl::support::exception("param parse error");
+        throw wilton::support::exception(TRACEMSG("param parse error"));
     }
     len = static_cast<int>(value.length());
     return parameters_values("", value, type, len, format);
@@ -345,7 +350,7 @@ bool psql_handler::handle_result(PGconn* conn, PGresult* res, const std::string&
         sqlstate = blank_sql_state;
     }
 
-    throw sl::support::exception(msg);
+    throw wilton::support::exception(TRACEMSG(msg));
 }
 
 void psql_handler::prepare_params(
@@ -680,7 +685,7 @@ void psql_handler::prepare_query() {
         // checking conn alive
         PGPing ping_result = PQping(connection_parameters.c_str());
         if (PQPING_OK != ping_result) {
-            throw sl::support::exception("Can't connect to database");
+            throw wilton::support::exception(TRACEMSG("Can't connect to database"));
         }
     }
 }
@@ -762,3 +767,7 @@ sl::json::value row::dump_to_json(){
     json_res.set_object(std::move(fields));
     return json_res;
 }
+
+} // pgsql
+} // db
+} // wilton

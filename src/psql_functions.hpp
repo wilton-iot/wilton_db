@@ -27,6 +27,10 @@
 #include <staticlib/json.hpp>
 #include <staticlib/utils/random_string_generator.hpp>
 
+namespace wilton{
+namespace db{
+namespace pgsql{
+
 struct parameters_values {
     std::string parameter_name;
     std::string value;
@@ -137,5 +141,8 @@ public:
     void prepare_query();
 };
 
+} // pgsql
+} // db
+} // wilton
 
 #endif /* PSQL_FUNCTIONS_HPP */

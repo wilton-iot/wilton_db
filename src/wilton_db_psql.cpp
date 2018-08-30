@@ -40,13 +40,13 @@ const std::string logger = std::string("wilton.PGConnection");
 
 struct wilton_PGConnection {
 private:
-    psql_handler conn;
+    wilton::db::pgsql::psql_handler conn;
 
 public:
-    wilton_PGConnection(psql_handler&& conn) :
+    wilton_PGConnection(wilton::db::pgsql::psql_handler&& conn) :
     conn(std::move(conn)) { }
 
-    psql_handler& impl() {
+    wilton::db::pgsql::psql_handler& impl() {
         return conn;
     }
 };
@@ -62,7 +62,7 @@ char* wilton_PGConnection_open(wilton_PGConnection** conn_out,
     try {
         uint16_t conn_url_len_u16 = static_cast<uint16_t> (conn_url_len);
         std::string conn_url_str{conn_url, conn_url_len_u16};
-        psql_handler conn{conn_url_str, is_ping_on};
+        wilton::db::pgsql::psql_handler conn{conn_url_str, is_ping_on};
         bool res = conn.connect();
         if (!res) {
             return wilton::support::alloc_copy(TRACEMSG(conn.get_last_error()));
