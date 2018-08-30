@@ -40,13 +40,13 @@ const std::string logger = std::string("wilton.PGConnection");
 
 struct wilton_PGConnection {
 private:
-    wilton::db::pgsql::psql_handler conn;
+    psql_handler conn;
 
 public:
-    wilton_PGConnection(wilton::db::pgsql::psql_handler&& conn) :
+    wilton_PGConnection(psql_handler&& conn) :
     conn(std::move(conn)) { }
 
-    wilton::db::pgsql::psql_handler& impl() {
+    psql_handler& impl() {
         return conn;
     }
 };
@@ -62,7 +62,7 @@ char* wilton_PGConnection_open(wilton_PGConnection** conn_out,
     try {
         uint16_t conn_url_len_u16 = static_cast<uint16_t> (conn_url_len);
         std::string conn_url_str{conn_url, conn_url_len_u16};
-        wilton::db::pgsql::psql_handler conn{conn_url_str, is_ping_on};
+        psql_handler conn{conn_url_str, is_ping_on};
         bool res = conn.connect();
         if (!res) {
             return wilton::support::alloc_copy(TRACEMSG(conn.get_last_error()));
@@ -118,7 +118,7 @@ char* wilton_PGConnection_close(
     if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
     try {
         wilton::support::log_debug(logger, "Closing connection, handle: [" + wilton::support::strhandle(conn) + "] ...");
-//        conn->impl().close();
+        conn->impl().close();
         delete conn;
         wilton::support::log_debug(logger, "Connection closed");
         return nullptr;
