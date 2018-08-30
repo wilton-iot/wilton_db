@@ -118,7 +118,6 @@ char* wilton_PGConnection_close(
     if (nullptr == conn) return wilton::support::alloc_copy(TRACEMSG("Null 'conn' parameter specified"));
     try {
         wilton::support::log_debug(logger, "Closing connection, handle: [" + wilton::support::strhandle(conn) + "] ...");
-        conn->impl().close();
         delete conn;
         wilton::support::log_debug(logger, "Connection closed");
         return nullptr;
