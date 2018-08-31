@@ -20,6 +20,7 @@ EXPORTS
     wilton_DBTransaction_start
     wilton_DBTransaction_commit
     wilton_DBTransaction_rollback
+    wilton_DBConnection_initialize_backends
 
     wilton_PGConnection_open
 	wilton_PGConnection_execute_sql

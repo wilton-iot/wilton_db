@@ -70,6 +70,7 @@ char* wilton_DBTransaction_commit(
 char* wilton_DBTransaction_rollback(
         wilton_DBTransaction* tran);
 
+char* wilton_DBConnection_initialize_backends();
 
 #ifdef __cplusplus
 }

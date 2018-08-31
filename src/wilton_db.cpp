@@ -208,3 +208,12 @@ char* wilton_DBTransaction_rollback(
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
     }
 }
+
+char* wilton_DBConnection_initialize_backends() /* noexcept */ {
+    try {
+        sl::orm::connection::initialize_backends();
+        return nullptr;
+    } catch (const std::exception& e) {
+        return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
+    }
+}

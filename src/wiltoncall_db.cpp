@@ -476,6 +476,8 @@ extern "C" char* wilton_module_init() {
         wilton::db::shared_conn_registry();
         wilton::db::shared_tran_registry();
         wilton::db::shared_psql_conn_registry();
+        auto err = wilton_DBConnection_initialize_backends();
+        if (nullptr != err) wilton::support::throw_wilton_error(err, TRACEMSG(err));
 
         wilton::support::register_wiltoncall("db_connection_open", wilton::db::connection_open);
         wilton::support::register_wiltoncall("db_connection_query", wilton::db::connection_query);
