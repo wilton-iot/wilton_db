@@ -309,8 +309,6 @@ support::buffer db_pgsql_connection_open(sl::io::span<const char> data) {
     return support::make_json_buffer({
         { "connectionHandle", handle}
     });
-    (void) data;
-    return support::make_null_buffer();
 }
 
 support::buffer db_pgsql_connection_close(sl::io::span<const char> data) {
