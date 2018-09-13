@@ -106,6 +106,8 @@ class psql_handler {
 
     sl::json::value get_command_status_as_json(PGresult *result);
 
+    void clear_cache();
+
 public:
     psql_handler(const std::string& conn_params, bool is_ping_on);
 

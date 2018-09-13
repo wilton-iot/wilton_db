@@ -661,6 +661,7 @@ sl::json::value execute_sql_with_parameters(
 }
 
 sl::json::value execute_with_parameters(psql_handler&, const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag){
+    check_database_reload();
     if (cache_flag) {
         std::string prepared_name{};
         prepare_cached(sql_statement, prepared_name);
@@ -693,6 +694,20 @@ void prepare_query() {
         if (PQPING_OK != ping_result) {
             throw wilton::support::exception(TRACEMSG("Can't connect to database"));
         }
+    }
+}
+
+void clear_cache(){
+    queries_cache.clear();
+    prepared_names.clear();
+}
+
+void check_database_reload(){
+    // checking database reset
+    PQexec(conn, "SELECT 42");
+    if (CONNECTION_BAD == PQstatus(conn)) {
+        PQreset(conn);
+        clear_cache();
     }
 }
 
@@ -791,3 +806,4 @@ sl::json::value row::dump_to_json(){
 } // pgsql
 } // db
 } // wilton
+
