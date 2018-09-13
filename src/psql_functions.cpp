@@ -203,6 +203,7 @@ sl::json::value get_result_as_json(PGresult *res){
 
 
 void prepare_text(std::string& val){
+    if (!val.size()) return;
     std::stack<size_t> poses;
     for (size_t i = 0; i < val.size() - 1; ++i) {
         if ('\"' == val[i+1] && val[i] != '\\') {
