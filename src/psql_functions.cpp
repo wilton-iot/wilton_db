@@ -205,9 +205,12 @@ sl::json::value get_result_as_json(PGresult *res){
 void prepare_text(std::string& val){
     if (!val.size()) return;
     std::stack<size_t> poses;
-    for (size_t i = 0; i < val.size() - 1; ++i) {
-        if ('\"' == val[i+1] && val[i] != '\\') {
-            poses.push(i+1);
+    if ('\"' == val[0]){
+        poses.push(0);
+    }
+    for (size_t i = 1; i < val.size(); ++i) {
+        if ('\"' == val[i] && '\\' != val[i-1]) {
+            poses.push(i);
         }
     }
     while (poses.size()) {
