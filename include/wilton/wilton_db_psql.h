@@ -29,8 +29,7 @@ typedef struct wilton_PGConnection wilton_PGConnection;
 
 char* wilton_PGConnection_open(wilton_PGConnection** conn_out,
         const char* conn_url,
-        int conn_url_len,
-        int is_ping_on);
+        int conn_url_len);
 
 char* wilton_PGConnection_execute_sql(wilton_PGConnection* conn,
         const char* sql_text,

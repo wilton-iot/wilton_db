@@ -52,6 +52,21 @@ namespace wilton{
 namespace db{
 namespace pgsql{
 
+#define PSQL_EXECUTE_WITH_PARAMS \
+    res = PQexecParams(conn, query.c_str(), \
+        params_count, params_types.data(), \
+        const_cast<const char* const*>(params_values.data()), \
+        const_cast<const int*>(params_length.data()), \
+        const_cast<const int*>(params_formats.data()), \
+        text_format);
+#define PSQL_EXECUTE_PREPARED \
+    res = PQexecPrepared(conn, prepared_name.c_str(), \
+        params_count, \
+        const_cast<const char* const*>(params_values.data()), \
+        const_cast<const int*>(params_length.data()), \
+        const_cast<const int*>(params_formats.data()), \
+        text_format);
+
 namespace { // anonymous
 
 Oid get_json_array_type(const sl::json::value& json_value) {
@@ -203,10 +218,14 @@ sl::json::value get_result_as_json(PGresult *res){
 
 
 void prepare_text(std::string& val){
+    if (!val.size()) return;
     std::stack<size_t> poses;
-    for (size_t i = 0; i < val.size() - 1; ++i) {
-        if ('\"' == val[i+1] && val[i] != '\\') {
-            poses.push(i+1);
+    if ('\"' == val[0]){
+        poses.push(0);
+    }
+    for (size_t i = 1; i < val.size(); ++i) {
+        if ('\"' == val[i] && '\\' != val[i-1]) {
+            poses.push(i);
         }
     }
     while (poses.size()) {
@@ -288,14 +307,13 @@ protected:
     std::string last_error;
     std::map<std::string, std::vector<std::string>> prepared_names;
     std::unordered_map<std::string, std::string> queries_cache;
-    int ping_on;
+//    int ping_on;
     sl::utils::random_string_generator names_generator;
 public:    
-impl(const std::string& conn_params, int is_ping_on) :
+impl(const std::string& conn_params) :
 conn(nullptr),
 res(nullptr),
-connection_parameters(conn_params),
-ping_on(is_ping_on) { }
+connection_parameters(conn_params){ }
 
 ~impl() STATICLIB_NOEXCEPT {
     clear_result();
@@ -420,9 +438,13 @@ void prepare_params(
 }
 
 sl::json::value execute_hardcode_statement(PGconn* conn, const std::string& query, const std::string& error_message) {
-    prepare_query();
     res = PQexec(conn, query.c_str());
-    return get_execution_result(error_message);
+    if (is_connection_bad()) {
+        reset_database_connection();
+        res = PQexec(conn, query.c_str());
+    }
+
+    return get_execution_result(error_message); // throw on error
 }
 
 void begin(psql_handler&)
@@ -581,21 +603,31 @@ void cache_sql(const std::string& sql, const std::string& name){
     queries_cache[sql] = name;
 }
 
+sl::json::value prepare_and_cahce(const std::string& sql_query, std::string& query_name){
+    query_name = generate_unique_name();
+    std::string query = parse_query(sql_query, prepared_names[query_name]);
+    res = PQprepare(conn, query_name.c_str(), query.c_str(), static_cast<int>(prepared_names[query_name].size()), NULL);
+    if (is_connection_bad()) {
+        auto tmp_prepared_names = prepared_names[query_name];
+        reset_database_connection();
+        prepared_names[query_name] = tmp_prepared_names;
+        res = PQprepare(conn, query_name.c_str(), query.c_str(), static_cast<int>(prepared_names[query_name].size()), NULL);
+    }
+    sl::json::value result = get_execution_result("PQprepare error"); // throw on error
+    cache_sql(sql_query, query_name);
+    return result;
+}
+
 sl::json::value prepare_cached(const std::string& sql_query, std::string& query_name){
     if (sql_cached(sql_query)) {
         query_name = queries_cache[sql_query];
-        return std::string{};
+        return sl::json::value(); // null_T value
     } else {
-        query_name = generate_unique_name();
-        std::string query = parse_query(sql_query, prepared_names[query_name]);
-        res = PQprepare(conn, query_name.c_str(), query.c_str(), static_cast<int>( prepared_names[query_name].size()), NULL);
-        sl::json::value result = get_execution_result("PQprepare error"); // throw on error
-        cache_sql(sql_query, query_name);
-        return result;
+        return prepare_and_cahce(sql_query, query_name);
     }
 }
 
-sl::json::value get_command_status_as_json(PGresult* result) {
+sl::json::value get_command_status_as_json(PGresult* result){
     std::vector<sl::json::field> fields;
     sl::json::value val(PQcmdStatus(result));
     fields.emplace_back("cmd_status", std::move(val));
@@ -604,8 +636,11 @@ sl::json::value get_command_status_as_json(PGresult* result) {
     return json;
 }
 
-sl::json::value execute_prepared_with_parameters(
-        const std::string& prepared_name, const staticlib::json::value &parameters){
+sl::json::value prepare_and_execute_with_parameters(const std::string& sql_query, const staticlib::json::value &parameters){
+    std::string prepared_name{};
+
+    prepare_cached(sql_query, prepared_name);
+
     int params_count = 0;
     std::vector<Oid> params_types;
     std::vector<const char*> params_values;
@@ -619,15 +654,24 @@ sl::json::value execute_prepared_with_parameters(
     prepare_params(params_types, params_values, params_length, params_formats, vals, prepared_names[prepared_name]);
 
     params_count = static_cast<int>(params_types.size());
-    prepare_query();
     res = PQexecPrepared(conn, prepared_name.c_str(),
                          params_count,
                          const_cast<const char* const*>(params_values.data()),
                          const_cast<const int*>(params_length.data()),
                          const_cast<const int*>(params_formats.data()),
                          text_format);
+    if (is_connection_bad()) {
+        reset_database_connection();
+        prepare_cached(sql_query, prepared_name);
+        res = PQexecPrepared(conn, prepared_name.c_str(),
+                             params_count,
+                             const_cast<const char* const*>(params_values.data()),
+                             const_cast<const int*>(params_length.data()),
+                             const_cast<const int*>(params_formats.data()),
+                             text_format);
+    }
 
-    return get_execution_result("PQexecParams error");
+    return get_execution_result("PQexecPrepared error"); // throw on error
 }
 
 sl::json::value execute_sql_with_parameters(
@@ -648,7 +692,7 @@ sl::json::value execute_sql_with_parameters(
     prepare_params(params_types, params_values, params_length, params_formats, vals, names);
 
     params_count = static_cast<int>(params_types.size());
-    prepare_query();
+
     res = PQexecParams(conn, query.c_str(),
                        params_count, params_types.data(),
                        const_cast<const char* const*>(params_values.data()),
@@ -656,14 +700,35 @@ sl::json::value execute_sql_with_parameters(
                        const_cast<const int*>(params_formats.data()),
                        text_format);
 
-    return get_execution_result("PQexecParams error");
+    if (is_connection_bad()) {
+        reset_database_connection();
+        res = PQexecParams(conn, query.c_str(),
+                           params_count, params_types.data(),
+                           const_cast<const char* const*>(params_values.data()),
+                           const_cast<const int*>(params_length.data()),
+                           const_cast<const int*>(params_formats.data()),
+                           text_format);
+    }
+    return get_execution_result("PQexecParams error"); // throw on error
 }
 
-sl::json::value execute_with_parameters(psql_handler&, const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag){
+bool is_connection_bad() {
+    return (CONNECTION_BAD == PQstatus(conn));
+}
+
+void clear_cache(){
+    queries_cache.clear();
+    prepared_names.clear();
+}
+
+void reset_database_connection() {
+    PQreset(conn);
+    clear_cache();
+}
+
+sl::json::value execute_with_parameters(psql_handler&, const std::string& sql_statement, const staticlib::json::value& parameters, int cache_flag) {
     if (cache_flag) {
-        std::string prepared_name{};
-        prepare_cached(sql_statement, prepared_name);
-        return execute_prepared_with_parameters(prepared_name, parameters);
+        return prepare_and_execute_with_parameters(sql_statement, parameters);
     }
     return execute_sql_with_parameters(sql_statement, parameters);
 }
@@ -673,7 +738,6 @@ std::string get_last_error(psql_handler&) {
 }
 
 sl::json::value get_execution_result(const std::string &error_msg){
-    // TODO add return string if result equal to false
     bool result = handle_result(conn, res, error_msg);
     sl::json::value json_result{};
     if (result) {
@@ -685,19 +749,9 @@ sl::json::value get_execution_result(const std::string &error_msg){
     return json_result;
 }
 
-void prepare_query() {
-    if (ping_on) {
-        // checking conn alive
-        PGPing ping_result = PQping(connection_parameters.c_str());
-        if (PQPING_OK != ping_result) {
-            throw wilton::support::exception(TRACEMSG("Can't connect to database"));
-        }
-    }
-}
-
 };
 
-PIMPL_FORWARD_CONSTRUCTOR(psql_handler, (const std::string&)(int), (), wilton::support::exception);
+PIMPL_FORWARD_CONSTRUCTOR(psql_handler, (const std::string&), (), wilton::support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, void, setup_connection_params, (const std::string&), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, bool, connect, (), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, void, begin, (), (), support::exception);
@@ -790,3 +844,4 @@ sl::json::value row::dump_to_json(){
 } // pgsql
 } // db
 } // wilton
+

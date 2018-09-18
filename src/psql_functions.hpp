@@ -82,7 +82,7 @@ protected:
 public:
     PIMPL_CONSTRUCTOR(psql_handler)
 
-    psql_handler(const std::string& conn_params, int is_ping_on);
+    psql_handler(const std::string& conn_params);
 
     void setup_connection_params(const std::string& conn_params);
 
