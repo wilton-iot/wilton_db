@@ -14,7 +14,7 @@
  */
 
 #include <cstdlib>
-#include <algorithm>    // std::sort, std::remove
+#include <algorithm>    // std::sort
 #include <stack>
 
 #include "wilton/support/exception.hpp"
@@ -216,8 +216,8 @@ sl::json::value get_result_as_json(PGresult *res){
     return json;
 }
 
-
-void prepare_text(std::string& val){
+void escape_quotes(std::string& val){
+    // need add escaping characters for '"' symbols
     if (!val.size()) return;
     std::stack<size_t> poses;
     if ('\"' == val[0]){
@@ -228,13 +228,43 @@ void prepare_text(std::string& val){
             poses.push(i);
         }
     }
+    // only one resize
+    val.reserve(val.size() + poses.size());
     while (poses.size()) {
         val.insert(poses.top(), "\\");
         poses.pop();
     }
 }
 
+void escape_newlines(std::string& val){
+     // need add escaping characters for '\n' symbols
+    if (!val.size()) return;
+    std::stack<size_t> poses;
+    if ('\n' == val[0]){
+        poses.push(0);
+    }
+    for (size_t i = 1; i < val.size(); ++i) {
+        if ('\n' == val[i] && '\\' != val[i-1]) {
+            poses.push(i);
+        }
+    }
+    // only one resize
+    val.reserve(val.size() + poses.size());
+    while (poses.size()) {
+        // change '\n' to "\\n"
+        val[poses.top()] = 'n';
+        val.insert(poses.top(), "\\");
+        poses.pop();
+    }
+}
+
+void prepare_text(std::string& val){
+    escape_quotes(val);
+    escape_newlines(val);
+}
+
 void prepare_text_array(std::string& val) {
+    escape_newlines(val);
     enum class states {
         normal, in_string, manual_open
     };
@@ -264,7 +294,7 @@ void prepare_text_array(std::string& val) {
             } else if (litera == ']' && prev_state != states::in_string) {
                 inserted_poses.push(i);
                 state = states::manual_open;
-            } else if (litera != '"' &&litera != ']' && litera != ',') {
+            } else if (litera != '"' && litera != ']' && litera != ',') {
                 inserted_poses.push(i);
                 state = states::manual_open;
             }
@@ -835,8 +865,6 @@ sl::json::value row::dump_to_json(){
     for (size_t i = 0; i < properties.size(); ++i) {
         std::string field_name = properties[i].name;
         std::string field_value = get_value_as_string(i);
-        // remove new line symbols
-        field_value.erase(std::remove(field_value.begin(), field_value.end(), '\n'), field_value.end());
         fields.emplace_back(field_name.c_str(), sl::json::loads(field_value));
     }
     json_res.set_object(std::move(fields));
