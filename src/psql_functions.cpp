@@ -14,7 +14,7 @@
  */
 
 #include <cstdlib>
-#include <algorithm>    // std::sort
+#include <algorithm>    // std::sort, std::remove
 #include <stack>
 
 #include "wilton/support/exception.hpp"
@@ -835,6 +835,8 @@ sl::json::value row::dump_to_json(){
     for (size_t i = 0; i < properties.size(); ++i) {
         std::string field_name = properties[i].name;
         std::string field_value = get_value_as_string(i);
+        // remove new line symbols
+        field_value.erase(std::remove(field_value.begin(), field_value.end(), '\n'), field_value.end());
         fields.emplace_back(field_name.c_str(), sl::json::loads(field_value));
     }
     json_res.set_object(std::move(fields));
