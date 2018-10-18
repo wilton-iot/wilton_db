@@ -216,24 +216,6 @@ sl::json::value get_result_as_json(PGresult *res){
     return json;
 }
 
-
-void prepare_text(std::string& val){
-    if (!val.size()) return;
-    std::stack<size_t> poses;
-    if ('\"' == val[0]){
-        poses.push(0);
-    }
-    for (size_t i = 1; i < val.size(); ++i) {
-        if ('\"' == val[i] && '\\' != val[i-1]) {
-            poses.push(i);
-        }
-    }
-    while (poses.size()) {
-        val.insert(poses.top(), "\\");
-        poses.pop();
-    }
-}
-
 void prepare_text_array(std::string& val) {
     enum class states {
         normal, in_string, manual_open
@@ -264,7 +246,7 @@ void prepare_text_array(std::string& val) {
             } else if (litera == ']' && prev_state != states::in_string) {
                 inserted_poses.push(i);
                 state = states::manual_open;
-            } else if (litera != '"' &&litera != ']' && litera != ',') {
+            } else if (litera != '"' && litera != ']' && litera != ',') {
                 inserted_poses.push(i);
                 state = states::manual_open;
             }
@@ -818,8 +800,6 @@ std::string row::get_value_as_string(size_t value_pos){ // converts
     case PSQL_TEXTOID:
     case PSQL_VARCHAROID:
     default: {
-        prepare_text(val);
-        val = "\"" + val + "\"";
         break;
     }
     }
@@ -835,7 +815,8 @@ sl::json::value row::dump_to_json(){
     for (size_t i = 0; i < properties.size(); ++i) {
         std::string field_name = properties[i].name;
         std::string field_value = get_value_as_string(i);
-        fields.emplace_back(field_name.c_str(), sl::json::loads(field_value));
+        fields.emplace_back(field_name.c_str(),
+                            sl::json::value(field_value));
     }
     json_res.set_object(std::move(fields));
     return json_res;
