@@ -62,13 +62,12 @@ class row {
     // properties
     std::vector<column_property> properties;
     void add_column_property(std::string in_name, Oid in_type_id, std::string in_value);
-    std::string get_value_as_string(size_t value_pos);
+    sl::json::value get_value_as_json(size_t value_pos);
 
 public:
     ~row();
 
     row(PGresult *res, int row_pos);
-
     sl::json::value dump_to_json();
 };
 

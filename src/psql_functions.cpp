@@ -279,7 +279,133 @@ void prepare_text_array(std::string& val) {
     }
 }
 
+sl::json::value prepare_json_array(std::string& val) {
+    prepare_text_array(val);
+    const size_t emtpy_array_size = 2;
+    if (emtpy_array_size >= val.size()) {
+        return sl::json::loads(val);
+    }
+    std::vector<sl::json::value> array;
+    auto buffer = std::string{};
+    enum class states {
+        normal, in_string
+    };
+    states state = states::normal;
+    const size_t start_pos = 1;
+    const size_t string_length = val.size();
+    char prev_litera = '[';
+    for (size_t i = start_pos; i < string_length; ++i) {
+        char litera = val[i];
+        switch(state){
+        case states::normal:{
+            if ('"' == litera) {
+                state = states::in_string;
+            }
+            break;
+        }
+        case states::in_string:{
+            if ('"' != litera || ('"' == litera && '\\' == prev_litera)) {
+                buffer += litera;
+            } else {
+                state = states::normal;
+                array.emplace_back(buffer);
+                buffer.clear();
+            }
+            break;
+        }
+        }
+        prev_litera = litera;
+    }
+    return sl::json::value(std::move(array));
+}
+
+
 } // namespace
+
+//////////// ROW CLASS
+row::~row() {}
+row::row(PGresult *res, int row_pos) {
+    int fields_count = PQnfields(res);
+    for (int i = 0; i < fields_count; ++i) {
+        Oid type = PSQL_NULLOID;
+        if (!PQgetisnull(res, row_pos, i)) {
+            type = PQftype(res,i);
+        }
+        add_column_property(PQfname(res, i), type, PQgetvalue(res, row_pos, i));
+    }
+}
+
+void row::add_column_property(std::string in_name, Oid in_type_id, std::string in_value){
+    properties.emplace_back(in_name, in_type_id, in_value);
+}
+
+staticlib::json::value row::get_value_as_json(size_t value_pos) {
+    std::string val{properties[value_pos].value};
+    sl::json::value js_val;
+    switch(properties[value_pos].type_id){
+    case PSQL_CHARARRAYOID:
+    case PSQL_VARCHARARRAYOID:
+    case PSQL_TEXTARRAYOID: {
+        return prepare_json_array(val);
+        break;
+    }
+    case PSQL_FLOAT4ARRAYOID:
+    case PSQL_FLOAT8ARRAYOID:
+    case PSQL_INT2ARRAYOID:
+    case PSQL_INT4ARRAYOID:
+    case PSQL_INT8ARRAYOID:{
+        const size_t open_brace_pos = 0;
+        const size_t close_brace_pos = val.size()-1;
+        const size_t replace_symbol_amount = 1;
+        val.replace(open_brace_pos, replace_symbol_amount, "[");
+        val.replace(close_brace_pos, replace_symbol_amount, "]");
+        return sl::json::loads(val);
+        break;
+    }
+    case PSQL_BOOLOID: {
+        if ("t" == val) { // "t" - true sign for boolean type from PGresult
+            js_val.set_bool(true);
+        } else if ("f" == val) {
+            js_val.set_bool(false);
+        }
+        break;
+    }
+    case PSQL_INT2OID:
+    case PSQL_INT4OID:
+    case PSQL_INT8OID:
+    case PSQL_JSONOID:
+    case PSQL_JSONBOID:
+    case PSQL_FLOAT4OID:
+    case PSQL_FLOAT8OID: {
+        return sl::json::loads(val);
+        break;
+    }
+    case PSQL_NULLOID:{
+        break;
+    }
+    case PSQL_TEXTOID:
+    case PSQL_VARCHAROID:
+    default: {
+        js_val.set_string(val);
+        break;
+    }
+    }
+    return js_val;
+}
+
+sl::json::value row::dump_to_json(){
+    sl::json::value json_res;
+    std::vector<sl::json::field> fields;
+    for (size_t i = 0; i < properties.size(); ++i) {
+        std::string field_name = properties[i].name;
+        fields.emplace_back(field_name.c_str(),
+                            get_value_as_json(i));
+    }
+    json_res.set_object(std::move(fields));
+    return json_res;
+}
+
+
 
 class psql_handler::impl : public staticlib::pimpl::object::impl {
 protected:
@@ -356,7 +482,9 @@ bool handle_result(PGconn* conn, PGresult* res, const std::string& error_message
 
     const char* const pqError = PQresultErrorMessage(res);
     if (pqError && *pqError) {
-        msg += " ";
+        msg += " Code: [";
+        msg += PQresultErrorField(res, PG_DIAG_SQLSTATE);
+        msg += "], ";
         msg += pqError;
     }
 
@@ -741,86 +869,6 @@ PIMPL_FORWARD_METHOD(psql_handler, void, commit, (), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, void, rollback, (), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, sl::json::value, execute_with_parameters, (const std::string&)(const staticlib::json::value&)(int), (), support::exception);
 PIMPL_FORWARD_METHOD(psql_handler, std::string, get_last_error, (), (), support::exception);
-
-//////////// ROW CLASS
-row::~row() {}
-row::row(PGresult *res, int row_pos) {
-    int fields_count = PQnfields(res);
-    for (int i = 0; i < fields_count; ++i) {
-        Oid type = PSQL_NULLOID;
-        if (!PQgetisnull(res, row_pos, i)) {
-            type = PQftype(res,i);
-        }
-        add_column_property(PQfname(res, i), type, PQgetvalue(res, row_pos, i));
-    }
-}
-
-void row::add_column_property(std::string in_name, Oid in_type_id, std::string in_value){
-    properties.emplace_back(in_name, in_type_id, in_value);
-}
-std::string row::get_value_as_string(size_t value_pos){ // converts
-    std::string val{properties[value_pos].value};
-    switch(properties[value_pos].type_id){
-    case PSQL_CHARARRAYOID:
-    case PSQL_VARCHARARRAYOID:
-    case PSQL_TEXTARRAYOID: {
-        prepare_text_array(val);
-        break;
-    }
-    case PSQL_FLOAT4ARRAYOID:
-    case PSQL_FLOAT8ARRAYOID:
-    case PSQL_INT2ARRAYOID:
-    case PSQL_INT4ARRAYOID:
-    case PSQL_INT8ARRAYOID:{
-        const size_t open_brace_pos = 0;
-        const size_t close_brace_pos = val.size()-1;
-        const size_t replace_symbol_amount = 1;
-        val.replace(open_brace_pos, replace_symbol_amount, "[");
-        val.replace(close_brace_pos, replace_symbol_amount, "]");
-        break;
-    }
-    case PSQL_BOOLOID: {
-        if ("t" == val) { // "t" - true sign for boolean type from PGresult
-            val = std::string{"true"};
-        } else if ("f" == val) {
-            val = std::string{"false"};
-        }
-        break;
-    }
-    case PSQL_INT2OID:
-    case PSQL_INT4OID:
-    case PSQL_INT8OID:
-    case PSQL_JSONOID:
-    case PSQL_JSONBOID:
-    case PSQL_FLOAT4OID:
-    case PSQL_FLOAT8OID:
-    case PSQL_NULLOID:{
-        break;
-    }
-    case PSQL_TEXTOID:
-    case PSQL_VARCHAROID:
-    default: {
-        break;
-    }
-    }
-    if (val.empty()){
-        val = "null";
-    }
-    return val;
-}
-
-sl::json::value row::dump_to_json(){
-    sl::json::value json_res;
-    std::vector<sl::json::field> fields;
-    for (size_t i = 0; i < properties.size(); ++i) {
-        std::string field_name = properties[i].name;
-        std::string field_value = get_value_as_string(i);
-        fields.emplace_back(field_name.c_str(),
-                            sl::json::value(field_value));
-    }
-    json_res.set_object(std::move(fields));
-    return json_res;
-}
 
 } // pgsql
 } // db
