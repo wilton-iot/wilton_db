@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <algorithm>    // std::sort
 #include <stack>
+#include <set>
 
 #include "wilton/support/exception.hpp"
 #include "staticlib/support/to_string.hpp"
@@ -38,12 +39,13 @@
 #define PSQL_FLOAT4OID  700
 #define PSQL_FLOAT8OID  701
 #define PSQL_UNKNOWNOID  705
-#define PSQL_INT2ARRAYOID  1005
-#define PSQL_INT4ARRAYOID  1007
-#define PSQL_INT8ARRAYOID  1016
+#define PSQL_INT2ARRAYOID 1005
+#define PSQL_INT4ARRAYOID 1007
+#define PSQL_INT8ARRAYOID 1016
 #define PSQL_TEXTARRAYOID 1009
-#define PSQL_CHARARRAYOID  1014
-#define PSQL_VARCHARARRAYOID  1015
+#define PSQL_CHARARRAYOID 1014
+#define PSQL_VARCHARARRAYOID 1015
+#define PSQL_BOOLARARRAYOID 1000
 #define PSQL_FLOAT4ARRAYOID 1021
 #define PSQL_FLOAT8ARRAYOID 1022
 
@@ -216,10 +218,62 @@ sl::json::value get_result_as_json(PGresult *res){
     return json;
 }
 
+std::set<size_t> check_poses(const std::string& str, const std::string& val){
+    std::set<size_t> null_poses;
+    size_t search_pos = 0;
+    while (std::string::npos == search_pos) {
+        search_pos = str.find(val, search_pos);
+        // Check symbols at borders
+        size_t left = search_pos-1;
+        size_t right = search_pos + 4;
+        char ll = str[left];
+        char rl = str[right];
+        if (('[' == ll && ']' == rl) ||
+            ('[' == str[left] && ',' == str[right]) ||
+            (',' == str[left] && ']' == str[right]) ||
+            (',' == str[left] && ',' == str[right])) {
+            null_poses.insert(search_pos); //because insert shifts litera
+            null_poses.insert(right);
+        }
+        if (std::string::npos == search_pos) break;
+        search_pos++;
+    }
+    return null_poses;
+}
+
+std::set<size_t> check_null_poses(const std::string& val){
+    std::set<size_t> null_poses;
+    std::set<size_t> big_null_poses;
+    null_poses = check_poses(val, "null");
+    big_null_poses = check_poses(val, "NULL");
+    null_poses.insert(big_null_poses.begin(),big_null_poses.end());
+    return null_poses;
+}
+
+void replace_all_occurences(std::string& str, const std::string& subst, const std::string& replacer) {
+    size_t search_pos = 0;
+    while (std::string::npos == search_pos){
+        search_pos = str.find(subst, search_pos);
+        if (std::string::npos == search_pos) break;
+        str.replace(search_pos, subst.size(), replacer);
+        search_pos += replacer.size();
+    }
+}
+
+void change_null_register(std::string& val) {
+    replace_all_occurences(val, "NULL", "null");
+}
+
+void prepare_bool_array(std::string& val){
+    replace_all_occurences(val, "t", "true");
+    replace_all_occurences(val, "f", "false");
+}
+
 void prepare_text_array(std::string& val) {
     enum class states {
         normal, in_string, manual_open
     };
+
     states state = states::normal;
     states prev_state = states::normal;
     const size_t open_brace_pos = 0;
@@ -231,6 +285,8 @@ void prepare_text_array(std::string& val) {
     if (emtpy_array_size >= val.size()) {
         return;
     }
+
+    std::set<size_t> null_poses = check_null_poses(val);
     std::stack<size_t> inserted_poses;
     const size_t start_pos = 1;
     const size_t string_length = val.size();
@@ -274,7 +330,9 @@ void prepare_text_array(std::string& val) {
     }
 
     while (inserted_poses.size()) {
-        val.insert(inserted_poses.top(), "\"");
+        if (!null_poses.count(inserted_poses.top())) {
+            val.insert(inserted_poses.top(), "\"");
+        }
         inserted_poses.pop();
     }
 }
@@ -297,9 +355,11 @@ sl::json::value prepare_json_array(std::string& val) {
     for (size_t i = start_pos; i < string_length; ++i) {
         char litera = val[i];
         switch(state){
-        case states::normal:{
+        case states::normal: {
             if ('"' == litera) {
                 state = states::in_string;
+            } else if (('N' == litera || 'n' == litera) && '"' != prev_litera) {
+                array.emplace_back(nullptr); // if we get NULL value setup it as null for json
             }
             break;
         }
@@ -349,6 +409,9 @@ staticlib::json::value row::get_value_as_json(size_t value_pos) {
         return prepare_json_array(val);
         break;
     }
+    case PSQL_BOOLARARRAYOID: {
+        prepare_bool_array(val); // no break
+    }
     case PSQL_FLOAT4ARRAYOID:
     case PSQL_FLOAT8ARRAYOID:
     case PSQL_INT2ARRAYOID:
@@ -359,8 +422,8 @@ staticlib::json::value row::get_value_as_json(size_t value_pos) {
         const size_t replace_symbol_amount = 1;
         val.replace(open_brace_pos, replace_symbol_amount, "[");
         val.replace(close_brace_pos, replace_symbol_amount, "]");
+        change_null_register(val);
         return sl::json::loads(val);
-        break;
     }
     case PSQL_BOOLOID: {
         if ("t" == val) { // "t" - true sign for boolean type from PGresult
@@ -378,7 +441,6 @@ staticlib::json::value row::get_value_as_json(size_t value_pos) {
     case PSQL_FLOAT4OID:
     case PSQL_FLOAT8OID: {
         return sl::json::loads(val);
-        break;
     }
     case PSQL_NULLOID:{
         break;
@@ -404,7 +466,6 @@ sl::json::value row::dump_to_json(){
     json_res.set_object(std::move(fields));
     return json_res;
 }
-
 
 
 class psql_handler::impl : public staticlib::pimpl::object::impl {
