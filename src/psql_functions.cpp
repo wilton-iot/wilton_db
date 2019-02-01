@@ -223,7 +223,7 @@ std::set<size_t> check_poses(const std::string& str, const std::string& val){
     size_t search_pos = 0;
     while (true){
         search_pos = str.find(val, search_pos);
-        // Теперь надо проверить что у него там по краям
+        // Check symbols at borders
         size_t left = search_pos-1;
         size_t right = search_pos + 4;
         char ll = str[left];
@@ -232,7 +232,7 @@ std::set<size_t> check_poses(const std::string& str, const std::string& val){
             ('[' == str[left] && ',' == str[right]) ||
             (',' == str[left] && ']' == str[right]) ||
             (',' == str[left] && ',' == str[right])) {
-            null_poses.insert(left + 1); //because insert shifts litera
+            null_poses.insert(search_pos); //because insert shifts litera
             null_poses.insert(right);
         }
         if (std::string::npos == search_pos) break;
@@ -260,11 +260,8 @@ void replace_all_occurences(std::string& str, const std::string& subst, const st
     }
 }
 
-
 void change_null_register(std::string& val) {
-    std::string big_null = "NULL";
-    std::string small_null = "null";
-    replace_all_occurences(val, big_null, small_null);
+    replace_all_occurences(val, "NULL", "null");
 }
 
 void prepare_bool_array(std::string& val){
