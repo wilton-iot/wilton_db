@@ -34,8 +34,7 @@ install:
 
 build_script:
   - echo "Updading modules to master"
-#  - resources\ci\master-modules.bat
-  - ..\wilton_db\master-modules.bat
+  - resources\ci\master-modules.bat
   - echo "Replacing repo to test PR"
   - rd /s /q modules\wilton_db
   - if exist modules\wilton_db exit /b 1
