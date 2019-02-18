@@ -221,7 +221,7 @@ sl::json::value get_result_as_json(PGresult *res){
 std::set<size_t> check_poses(const std::string& str, const std::string& val){
     std::set<size_t> null_poses;
     size_t search_pos = 0;
-    while (std::string::npos == search_pos) {
+    while (std::string::npos != search_pos) {
         search_pos = str.find(val, search_pos);
         // Check symbols at borders
         size_t left = search_pos-1;
@@ -252,7 +252,7 @@ std::set<size_t> check_null_poses(const std::string& val){
 
 void replace_all_occurences(std::string& str, const std::string& subst, const std::string& replacer) {
     size_t search_pos = 0;
-    while (std::string::npos == search_pos){
+    while (std::string::npos != search_pos){
         search_pos = str.find(subst, search_pos);
         if (std::string::npos == search_pos) break;
         str.replace(search_pos, subst.size(), replacer);
