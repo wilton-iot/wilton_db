@@ -48,22 +48,28 @@ namespace { //anonymous
 
 // initialized from wilton_module_init
 std::shared_ptr<support::unique_handle_registry<wilton_DBConnection>> conn_registry() {
-    static auto registry = std::make_shared<
-            support::unique_handle_registry<wilton_DBConnection>>(wilton_DBConnection_close);
+    static auto registry = std::make_shared<support::unique_handle_registry<wilton_DBConnection>>(
+            [](wilton_DBConnection* conn) STATICLIB_NOEXCEPT {
+                wilton_DBConnection_close(conn);
+            });
     return registry;
 }
 
 // initialized from wilton_module_init
 std::shared_ptr<support::unique_handle_registry<wilton_DBTransaction>> tran_registry() {
-    static auto registry = std::make_shared<
-            support::unique_handle_registry<wilton_DBTransaction>>(wilton_DBTransaction_rollback);
+    static auto registry = std::make_shared<support::unique_handle_registry<wilton_DBTransaction>>(
+            [](wilton_DBTransaction* tran) STATICLIB_NOEXCEPT {
+                wilton_DBTransaction_rollback(tran);
+            });
     return registry;
 }
 
 // initialized from wilton_module_init
 std::shared_ptr<support::unique_handle_registry<wilton_PGConnection>> psql_conn_registry() {
-    static auto registry = std::make_shared<
-            support::unique_handle_registry<wilton_PGConnection>>(wilton_PGConnection_close);
+    static auto registry = std::make_shared<support::unique_handle_registry<wilton_PGConnection>>(
+            [](wilton_PGConnection* conn) STATICLIB_NOEXCEPT {
+                wilton_PGConnection_close(conn);
+            });
     return registry;
 }
 
