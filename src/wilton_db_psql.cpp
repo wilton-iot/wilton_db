@@ -26,8 +26,8 @@
 
 #include "wilton/support/alloc.hpp"
 #include "wilton/support/buffer.hpp"
-#include "wilton/support/handle_registry.hpp"
 #include "wilton/support/logging.hpp"
+#include "wilton/support/misc.hpp"
 
 #include <libpq-fe.h>
 #include "psql_functions.hpp"
